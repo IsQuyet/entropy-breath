@@ -91,11 +91,16 @@ record AirDrainConfig(
             minAir = 0;
         }
         List<AirDrainTier> tiers = loadTiers(section, fallback.tiers(), logger, path);
-        AirDamageConfig damage = loadDamage(section.getConfigurationSection("damage"), fallback.damage());
+        AirDamageConfig damage = loadDamage(section.getConfigurationSection("damage"), fallback.damage(), logger, path);
+        if (damage.enabled() && damage.airThreshold() < minAir) {
+            logger.warning("air-drain." + path + ".damage.air-threshold is below the minimum reachable air ("
+                    + minAir + "); using " + minAir + " instead.");
+            damage = damage.withAirThreshold(minAir);
+        }
         return new AirDrainProfile(enabled, preventRegeneration, allowNegativeAir, minAir, tiers, damage);
     }
 
-    private static AirDamageConfig loadDamage(ConfigurationSection section, AirDamageConfig fallback) {
+    private static AirDamageConfig loadDamage(ConfigurationSection section, AirDamageConfig fallback, Logger logger, String path) {
         if (section == null) {
             return fallback;
         }
@@ -104,8 +109,22 @@ record AirDrainConfig(
                 section.getBoolean("enabled", fallback.enabled()),
                 Math.max(1, section.getInt("interval-ticks", fallback.intervalTicks())),
                 section.getInt("air-threshold", fallback.airThreshold()),
-                Math.max(0.0D, section.getDouble("amount", fallback.amount()))
+                Math.max(0.0D, section.getDouble("amount", fallback.amount())),
+                loadDamageType(section.getString("type"), fallback.type(), logger, path)
         );
+    }
+
+    private static EntropyDamageType loadDamageType(String rawType, EntropyDamageType fallback, Logger logger, String path) {
+        if (rawType == null || rawType.isBlank()) {
+            return fallback;
+        }
+
+        try {
+            return EntropyDamageType.valueOf(rawType.toUpperCase(Locale.ROOT).replace('-', '_'));
+        } catch (IllegalArgumentException exception) {
+            logger.warning("Unknown damage type in air-drain." + path + ".damage.type: " + rawType + "; using " + fallback.name().toLowerCase(Locale.ROOT) + ".");
+            return fallback;
+        }
     }
 
     private static List<AirDrainTier> loadTiers(ConfigurationSection section, List<AirDrainTier> fallback, Logger logger, String path) {
@@ -142,11 +161,11 @@ record AirDrainConfig(
     }
 
     private static AirDrainProfile defaultInAirProfile() {
-        return new AirDrainProfile(true, true, true, -20, defaultTiers(), new AirDamageConfig(true, 20, -20, 2.0D));
+        return new AirDrainProfile(true, true, true, -20, defaultTiers(), new AirDamageConfig(true, 20, -20, 2.0D, EntropyDamageType.SUFFOCATION));
     }
 
     private static AirDrainProfile defaultInWaterProfile() {
-        return new AirDrainProfile(false, false, true, -20, defaultTiers(), new AirDamageConfig(false, 20, -20, 2.0D));
+        return new AirDrainProfile(false, false, true, -20, defaultTiers(), new AirDamageConfig(false, 20, -20, 2.0D, EntropyDamageType.DROWNING));
     }
 
     private static List<AirDrainTier> defaultTiers() {

@@ -1,7 +1,10 @@
 package io.github.isquyet.entropybreath;
 
 import io.github.isquyet.entropycore.api.EntropyService;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
+import org.bukkit.damage.DamageSource;
+import org.bukkit.damage.DamageType;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -24,7 +27,8 @@ public final class EntropyBreath extends JavaPlugin implements Listener {
     private EntropyService entropyService;
     private AirDrainConfig airDrainConfig;
     private BukkitTask drainTask;
-    private final Map<UUID, Long> lastDamageAtMillis = new HashMap<>();
+    private final Map<UUID, Long> lastDamageAtTick = new HashMap<>();
+    private long elapsedTicks;
 
     @Override
     public void onEnable() {
@@ -40,6 +44,7 @@ public final class EntropyBreath extends JavaPlugin implements Listener {
 
         entropyService = provider.getProvider();
         getServer().getPluginManager().registerEvents(this, this);
+        registerCommands();
         startDrainTask();
     }
 
@@ -49,7 +54,15 @@ public final class EntropyBreath extends JavaPlugin implements Listener {
             drainTask.cancel();
             drainTask = null;
         }
-        lastDamageAtMillis.clear();
+        lastDamageAtTick.clear();
+    }
+
+    void reloadEntropyBreath() {
+        reloadConfig();
+        airDrainConfig = AirDrainConfig.load(getConfig(), getLogger());
+        lastDamageAtTick.clear();
+        elapsedTicks = 0L;
+        startDrainTask();
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -81,12 +94,13 @@ public final class EntropyBreath extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        lastDamageAtMillis.remove(event.getPlayer().getUniqueId());
+        lastDamageAtTick.remove(event.getPlayer().getUniqueId());
     }
 
     private void startDrainTask() {
         if (drainTask != null) {
             drainTask.cancel();
+            drainTask = null;
         }
         if (!airDrainConfig.enabled()) {
             return;
@@ -95,11 +109,21 @@ public final class EntropyBreath extends JavaPlugin implements Listener {
         drainTask = Bukkit.getScheduler().runTaskTimer(this, this::drainOnlinePlayers, airDrainConfig.intervalTicks(), airDrainConfig.intervalTicks());
     }
 
+    private void registerCommands() {
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
+                "entropybreath",
+                "Reload EntropyBreath configuration.",
+                java.util.List.of("ebreath"),
+                new EntropyBreathCommand(this)
+        ));
+    }
+
     private void drainOnlinePlayers() {
         if (entropyService == null || airDrainConfig == null || !airDrainConfig.enabled()) {
             return;
         }
 
+        elapsedTicks += airDrainConfig.intervalTicks();
         for (Player player : Bukkit.getOnlinePlayers()) {
             drainPlayer(player);
         }
@@ -188,14 +212,21 @@ public final class EntropyBreath extends JavaPlugin implements Listener {
             return;
         }
 
-        long now = System.currentTimeMillis();
-        long intervalMillis = damage.intervalTicks() * 50L;
-        Long lastDamageAt = lastDamageAtMillis.get(player.getUniqueId());
-        if (lastDamageAt != null && now - lastDamageAt < intervalMillis) {
+        Long lastDamageAt = lastDamageAtTick.get(player.getUniqueId());
+        if (lastDamageAt != null && elapsedTicks - lastDamageAt < damage.intervalTicks()) {
             return;
         }
 
-        player.damage(damage.amount());
-        lastDamageAtMillis.put(player.getUniqueId(), now);
+        player.damage(damage.amount(), damageSourceFor(damage.type()));
+        lastDamageAtTick.put(player.getUniqueId(), elapsedTicks);
+    }
+
+    private DamageSource damageSourceFor(EntropyDamageType damageType) {
+        DamageType bukkitDamageType = switch (damageType) {
+            case DROWNING -> DamageType.DROWN;
+            case SUFFOCATION -> DamageType.IN_WALL;
+            case GENERIC -> DamageType.GENERIC;
+        };
+        return DamageSource.builder(bukkitDamageType).build();
     }
 }

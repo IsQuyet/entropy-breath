@@ -52,6 +52,9 @@ air-drain:
       interval-ticks: 20
       air-threshold: -20
       amount: 2.0
+      # generic, suffocation, or drowning. Suffocation matches air depletion
+      # outside water better than vanilla drowning death semantics.
+      type: suffocation
 
   in-water:
     # Vanilla already drains air and applies drowning damage in water.
@@ -78,3 +81,6 @@ air-drain:
       interval-ticks: 20
       air-threshold: -20
       amount: 2.0
+      # If water entropy damage is enabled, drowning matches vanilla water
+      # depletion semantics and death messages more closely.
+      type: drowning

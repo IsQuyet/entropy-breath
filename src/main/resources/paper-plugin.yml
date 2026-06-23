@@ -15,3 +15,8 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+
+permissions:
+  entropybreath.command.reload:
+    description: Allows reloading EntropyBreath configuration.
+    default: op
