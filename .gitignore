@@ -1,0 +1,15 @@
+# Gradle
+.gradle
+build
+
+# IDEs
+out/
+bin/
+.idea
+*.iml
+
+# Runtime working directory
+run
+
+# JVM crash logs
+hs_err_pid*

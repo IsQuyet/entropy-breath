@@ -1,0 +1,28 @@
+air-drain:
+  enabled: true
+  interval-ticks: 20
+  prevent-regeneration: true
+
+  # Creative and spectator players are ignored by default.
+  ignored-game-modes:
+    - CREATIVE
+    - SPECTATOR
+
+  # If enabled, air can drop below 0. Vanilla air values commonly use -20 as
+  # the drowning threshold, but this addon only controls the air value itself.
+  allow-negative-air: true
+  min-air: -20
+
+  # EntropyCore base entropy is intentionally small, so these tiers are tuned
+  # around low integer values instead of large linear scores.
+  tiers:
+    - min-entropy: 1
+      air-loss: 1
+    - min-entropy: 2
+      air-loss: 2
+    - min-entropy: 3
+      air-loss: 4
+    - min-entropy: 5
+      air-loss: 7
+    - min-entropy: 8
+      air-loss: 12

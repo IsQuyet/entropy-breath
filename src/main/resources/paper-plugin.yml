@@ -1,0 +1,17 @@
+name: EntropyBreath
+description: $description
+version: '${version}'
+
+main: io.github.isquyet.entropybreath.EntropyBreath
+api-version: '1.21.11'
+load: POSTWORLD
+
+authors: [ Quyet ]
+website: https://github.com/IsQuyet/entropy-breath
+
+dependencies:
+  server:
+    EntropyCore:
+      load: BEFORE
+      required: true
+      join-classpath: true
