@@ -1,28 +1,80 @@
 air-drain:
   enabled: true
+  # Main scan interval. Lower values react faster but run more often.
   interval-ticks: 20
-  prevent-regeneration: true
+
+  # Follow vanilla-style breathing protection by default.
+  # Water Breathing and Conduit Power stop entropy air drain and entropy damage,
+  # and they are allowed to restore air like vanilla. Respiration reduces
+  # entropy air loss instead of granting full immunity.
+  breathing-protection:
+    water-breathing:
+      stops-air-loss: true
+      stops-damage: true
+      allows-regeneration: true
+    conduit-power:
+      stops-air-loss: true
+      stops-damage: true
+      allows-regeneration: true
+    respiration:
+      reduces-air-loss: true
 
   # Creative and spectator players are ignored by default.
   ignored-game-modes:
     - CREATIVE
     - SPECTATOR
 
-  # If enabled, air can drop below 0. Vanilla air values commonly use -20 as
-  # the drowning threshold, but this addon only controls the air value itself.
-  allow-negative-air: true
-  min-air: -20
+  in-air:
+    enabled: true
+    prevent-regeneration: true
 
-  # EntropyCore base entropy is intentionally small, so these tiers are tuned
-  # around low integer values instead of large linear scores.
-  tiers:
-    - min-entropy: 1
-      air-loss: 1
-    - min-entropy: 2
-      air-loss: 2
-    - min-entropy: 3
-      air-loss: 4
-    - min-entropy: 5
-      air-loss: 7
-    - min-entropy: 8
-      air-loss: 12
+    # If enabled, air can drop below 0. Vanilla air values commonly use -20 as
+    # the drowning threshold. Entropy damage below uses that threshold by default.
+    allow-negative-air: true
+    min-air: -20
+
+    # EntropyCore base entropy is intentionally small, so these tiers are tuned
+    # around low integer values instead of large linear scores.
+    tiers:
+      - min-entropy: 1
+        air-loss: 1
+      - min-entropy: 2
+        air-loss: 2
+      - min-entropy: 3
+        air-loss: 4
+      - min-entropy: 5
+        air-loss: 7
+      - min-entropy: 8
+        air-loss: 12
+
+    damage:
+      enabled: true
+      interval-ticks: 20
+      air-threshold: -20
+      amount: 2.0
+
+  in-water:
+    # Vanilla already drains air and applies drowning damage in water.
+    # Enable these only if entropy should make water more dangerous.
+    enabled: false
+    prevent-regeneration: false
+    allow-negative-air: true
+    min-air: -20
+
+    tiers:
+      - min-entropy: 1
+        air-loss: 1
+      - min-entropy: 2
+        air-loss: 2
+      - min-entropy: 3
+        air-loss: 4
+      - min-entropy: 5
+        air-loss: 7
+      - min-entropy: 8
+        air-loss: 12
+
+    damage:
+      enabled: false
+      interval-ticks: 20
+      air-threshold: -20
+      amount: 2.0
