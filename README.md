@@ -2,9 +2,9 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-EntropyBreath is a Paper plugin that makes dangerous environments harder to breathe in. It reads local entropy from EntropyCore, adds optional height-based oxygen pressure, drains a player's air supply, blocks air regeneration when configured, and can damage players who stay in unsafe areas too long.
+EntropyBreath is a Paper plugin that makes dangerous environments harder to breathe in. It can read local entropy from EntropyCore when available, adds optional height-based oxygen pressure, drains a player's air supply, blocks air regeneration when configured, and can damage players who stay in unsafe areas too long.
 
-Use it when you want EntropyCore danger zones or extreme heights to affect moment-to-moment survival without adding new commands or custom items.
+Use it when you want EntropyCore danger zones, extreme heights, or both to affect moment-to-moment survival without adding new commands or custom items.
 
 ## Features
 
@@ -21,22 +21,22 @@ EntropyBreath focuses on one gameplay loop: environmental pressure makes air sca
 
 ## Requirements
 
-Install EntropyBreath on a Paper server with EntropyCore.
+Install EntropyBreath on a Paper server. EntropyCore is optional.
 
 - Paper `1.21.11`
 - Java `21`
-- EntropyCore `1.0-SNAPSHOT`
+- EntropyCore `1.0-SNAPSHOT` optional, only needed for entropy-based air loss
 - EntropyBreath `1.0-SNAPSHOT`
 
-EntropyBreath requires EntropyCore at server startup. If EntropyCore does not expose `EntropyService`, EntropyBreath disables itself.
+When EntropyCore is not installed or does not expose `EntropyService`, EntropyBreath treats local entropy as `0`. Height-based air loss can still work normally.
 
 ## Installation
 
-Install both plugins before starting the server.
+Install EntropyBreath before starting the server. Install EntropyCore too if you want entropy-based air loss.
 
-1. Build or download `entropy-core-1.0-SNAPSHOT.jar`
-2. Build or download `entropy-breath-1.0-SNAPSHOT.jar`
-3. Copy both jars into the server `plugins` directory:
+1. Build or download `entropy-breath-1.0-SNAPSHOT.jar`
+2. Optional: build or download `entropy-core-1.0-SNAPSHOT.jar`
+3. Copy the jars into the server `plugins` directory:
 
 ```text
 plugins/entropy-core-1.0-SNAPSHOT.jar
@@ -49,13 +49,13 @@ plugins/entropy-breath-1.0-SNAPSHOT.jar
 
 ## Default gameplay
 
-By default, entropy and height pressure affect breathing only when players are not in water.
+By default, entropy and height pressure affect breathing only when players are not in water. If EntropyCore is not present, only height pressure can contribute air loss.
 
 When a player enters a location with entropy above `0`, EntropyBreath decreases the player's air every `20` ticks. Higher entropy values remove more air per interval. At the default settings, entropy values `1`, `2`, `3`, `5`, and `8` map to stronger drain tiers.
 
 Height pressure uses the player's absolute Y level. The default config adds extra air loss at Y `0` and below, then again at Y `128` and above. Y levels near sea level add no height pressure.
 
-In water, vanilla Minecraft already drains air and applies drowning damage. EntropyBreath leaves that behavior unchanged by default. Enable `air-drain.in-water` only if entropy should make underwater areas more dangerous too.
+In water, vanilla Minecraft already drains air and applies drowning damage. EntropyBreath leaves that behavior unchanged by default. Enable `air-drain.in-water` only if entropy should make underwater areas more dangerous too. Enable `air-drain.height-air-loss.applies-to.in-water` if height pressure should also affect underwater air loss.
 
 ## Configuration
 
@@ -123,9 +123,9 @@ Tiers below `neutral-y` apply at or below their `y` value. Tiers above `neutral-
 
 Potion effects and enchantments follow vanilla expectations by default.
 
-- Water Breathing stops entropy air loss and damage, then allows air to regenerate
-- Conduit Power stops entropy air loss and damage, then allows air to regenerate
-- Breath of the Nautilus stops entropy air loss and damage, but does not refill air
+- Water Breathing stops EntropyBreath air loss and damage, then allows air to regenerate
+- Conduit Power stops EntropyBreath air loss and damage, then allows air to regenerate
+- Breath of the Nautilus stops EntropyBreath air loss and damage, but does not refill air
 - Respiration reduces EntropyBreath air loss when players are not in water
 
 Change these rules under `air-drain.breathing-protection`.
@@ -142,13 +142,17 @@ The reload permission defaults to `op`.
 
 ## Plugin metadata
 
-The Paper plugin metadata identifies EntropyBreath as an EntropyCore-dependent plugin.
+The Paper plugin metadata identifies EntropyCore as an optional server dependency.
 
 ```yaml
 name: EntropyBreath
 main: io.github.isquyet.entropybreath.EntropyBreath
 api-version: '1.21.11'
 load: POSTWORLD
+dependencies:
+  server:
+    EntropyCore:
+      required: false
 ```
 
 The description used by Paper comes from `gradle.properties`:
@@ -159,14 +163,7 @@ description=A Paper plugin that makes entropy and extreme height drain player ai
 
 ## Build from source
 
-Build EntropyCore's API before building EntropyBreath.
-
-```powershell
-cd ..\entropy-core
-.\gradlew.bat :api:publishToMavenLocal
-```
-
-Then build EntropyBreath:
+Build EntropyBreath:
 
 ```powershell
 cd ..\entropy-breath
@@ -189,7 +186,7 @@ build/libs/entropy-breath-1.0-SNAPSHOT.jar
 
 Start with the server log when the plugin does not behave as expected.
 
-- **EntropyBreath disables itself**: Install EntropyCore and confirm it loads before EntropyBreath
+- **Entropy-based air loss does not work**: Install EntropyCore and confirm it exposes `EntropyService`
 - **Players do not lose air**: Check that local entropy or height pressure is active and `air-drain.enabled` is `true`
 - **Creative players are ignored**: Remove `CREATIVE` from `air-drain.ignored-game-modes`
 - **Water behavior does not change**: Set `air-drain.in-water.enabled` to `true` for entropy, or `air-drain.height-air-loss.applies-to.in-water` to `true` for height pressure

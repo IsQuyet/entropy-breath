@@ -13,7 +13,6 @@ val paperApi = "io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT"
 
 dependencies {
     compileOnly(paperApi)
-    compileOnly("io.github.isquyet:entropy-core-api:1.0-SNAPSHOT")
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")

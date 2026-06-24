@@ -2,9 +2,9 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-EntropyBreath 是一个 Paper 插件，用于让危险环境变得更难呼吸。它会从 EntropyCore 读取本地 entropy，加入可选的高度氧气压力，扣减玩家的空气值，按配置阻止空气恢复，并能对长时间停留在危险区域的玩家造成伤害。
+EntropyBreath 是一个 Paper 插件，用于让危险环境变得更难呼吸。它可以在 EntropyCore 可用时读取本地 entropy，加入可选的高度氧气压力，扣减玩家的空气值，按配置阻止空气恢复，并能对长时间停留在危险区域的玩家造成伤害。
 
-如果你希望 EntropyCore 的危险区域或极端高度影响玩家的即时生存压力，又不想加入新命令或自定义物品，可以使用这个插件。
+如果你希望 EntropyCore 的危险区域、极端高度，或两者一起影响玩家的即时生存压力，又不想加入新命令或自定义物品，可以使用这个插件。
 
 ## 功能
 
@@ -21,22 +21,22 @@ EntropyBreath 专注于一个玩法循环：环境压力会让空气变稀缺。
 
 ## 运行要求
 
-在装有 EntropyCore 的 Paper 服务器上安装 EntropyBreath。
+在 Paper 服务器上安装 EntropyBreath。EntropyCore 是可选依赖。
 
 - Paper `1.21.11`
 - Java `21`
-- EntropyCore `1.0-SNAPSHOT`
+- EntropyCore `1.0-SNAPSHOT` 可选，仅在需要基于 entropy 扣氧时安装
 - EntropyBreath `1.0-SNAPSHOT`
 
-EntropyBreath 在服务器启动时依赖 EntropyCore。如果 EntropyCore 没有暴露 `EntropyService`，EntropyBreath 会禁用自身。
+如果没有安装 EntropyCore，或 EntropyCore 没有暴露 `EntropyService`，EntropyBreath 会把本地 entropy 当作 `0`。基于高度的空气扣减仍可正常工作。
 
 ## 安装
 
-启动服务器前先安装两个插件。
+启动服务器前先安装 EntropyBreath。如果需要基于 entropy 的扣氧，再同时安装 EntropyCore。
 
-1. 构建或下载 `entropy-core-1.0-SNAPSHOT.jar`
-2. 构建或下载 `entropy-breath-1.0-SNAPSHOT.jar`
-3. 将两个 jar 复制到服务器 `plugins` 目录：
+1. 构建或下载 `entropy-breath-1.0-SNAPSHOT.jar`
+2. 可选：构建或下载 `entropy-core-1.0-SNAPSHOT.jar`
+3. 将 jar 复制到服务器 `plugins` 目录：
 
 ```text
 plugins/entropy-core-1.0-SNAPSHOT.jar
@@ -49,13 +49,13 @@ plugins/entropy-breath-1.0-SNAPSHOT.jar
 
 ## 默认玩法
 
-默认配置下，entropy 和高度压力只会在玩家不在水里时影响呼吸。
+默认配置下，entropy 和高度压力只会在玩家不在水里时影响呼吸。如果没有安装 EntropyCore，则只有高度压力会参与扣氧。
 
 当玩家进入 entropy 大于 `0` 的区域时，EntropyBreath 每 `20` tick 扣减一次空气值。entropy 越高，每次扣减的空气越多。默认配置下，entropy 值 `1`、`2`、`3`、`5`、`8` 会对应更强的扣减分层。
 
 高度压力使用玩家的绝对 Y 值。默认配置会在 Y `0` 及以下增加额外空气扣减，也会在 Y `128` 及以上再次增加额外空气扣减。接近海平面的高度不会产生高度压力。
 
-在水中，原版 Minecraft 已经会扣减空气并造成溺水伤害。EntropyBreath 默认不改变水中行为。只有当你希望 entropy 也让水下区域更危险时，才需要启用 `air-drain.in-water`。
+在水中，原版 Minecraft 已经会扣减空气并造成溺水伤害。EntropyBreath 默认不改变水中行为。只有当你希望 entropy 也让水下区域更危险时，才需要启用 `air-drain.in-water`；如果希望高度压力也影响水下空气扣减，则启用 `air-drain.height-air-loss.applies-to.in-water`。
 
 ## 配置
 
@@ -123,9 +123,9 @@ height-air-loss:
 
 药水效果和附魔默认贴近原版行为。
 
-- Water Breathing 会阻止 entropy 空气扣减和伤害，并允许空气恢复
-- Conduit Power 会阻止 entropy 空气扣减和伤害，并允许空气恢复
-- Breath of the Nautilus 会阻止 entropy 空气扣减和伤害，但不会恢复空气
+- Water Breathing 会阻止 EntropyBreath 空气扣减和伤害，并允许空气恢复
+- Conduit Power 会阻止 EntropyBreath 空气扣减和伤害，并允许空气恢复
+- Breath of the Nautilus 会阻止 EntropyBreath 空气扣减和伤害，但不会恢复空气
 - Respiration 会降低 EntropyBreath 对不在水里玩家造成的空气扣减
 
 在 `air-drain.breathing-protection` 下修改这些规则。
@@ -142,13 +142,17 @@ EntropyBreath 只有一个管理命令。
 
 ## 插件元数据
 
-Paper 插件元数据会将 EntropyBreath 标记为依赖 EntropyCore 的插件。
+Paper 插件元数据会将 EntropyCore 标记为可选服务器依赖。
 
 ```yaml
 name: EntropyBreath
 main: io.github.isquyet.entropybreath.EntropyBreath
 api-version: '1.21.11'
 load: POSTWORLD
+dependencies:
+  server:
+    EntropyCore:
+      required: false
 ```
 
 Paper 使用的插件描述来自 `gradle.properties`：
@@ -159,14 +163,7 @@ description=A Paper plugin that makes entropy and extreme height drain player ai
 
 ## 从源码构建
 
-构建 EntropyBreath 前，先构建 EntropyCore 的 API。
-
-```powershell
-cd ..\entropy-core
-.\gradlew.bat :api:publishToMavenLocal
-```
-
-然后构建 EntropyBreath：
+构建 EntropyBreath：
 
 ```powershell
 cd ..\entropy-breath
@@ -189,7 +186,7 @@ build/libs/entropy-breath-1.0-SNAPSHOT.jar
 
 如果插件行为不符合预期，先检查服务器日志。
 
-- **EntropyBreath 禁用自身**：安装 EntropyCore，并确认它在 EntropyBreath 之前加载
+- **基于 entropy 的扣氧没有生效**：安装 EntropyCore，并确认它暴露了 `EntropyService`
 - **玩家没有被扣减空气值**：确认玩家所在位置的 entropy 或高度压力已生效，并且 `air-drain.enabled` 为 `true`
 - **创造模式玩家被忽略**：从 `air-drain.ignored-game-modes` 移除 `CREATIVE`
 - **水中行为没有变化**：如果要让 entropy 影响水中行为，将 `air-drain.in-water.enabled` 设为 `true`；如果要让高度压力影响水中行为，将 `air-drain.height-air-loss.applies-to.in-water` 设为 `true`

@@ -1,16 +1,15 @@
 package io.github.isquyet.entropybreath;
 
-import io.github.isquyet.entropycore.api.EntropyService;
 import io.github.isquyet.entropybreath.air.AirDrainController;
 import io.github.isquyet.entropybreath.command.EntropyBreathCommand;
 import io.github.isquyet.entropybreath.config.AirDrainConfig;
+import io.github.isquyet.entropybreath.entropy.EntropyLookup;
+import io.github.isquyet.entropybreath.entropy.EntropyLookupFactory;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class EntropyBreath extends JavaPlugin {
-    private EntropyService entropyService;
+    private EntropyLookup entropyLookup;
     private AirDrainConfig airDrainConfig;
     private AirDrainController airDrainController;
 
@@ -18,16 +17,8 @@ public final class EntropyBreath extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         airDrainConfig = AirDrainConfig.load(getConfig(), getLogger());
-
-        RegisteredServiceProvider<EntropyService> provider = Bukkit.getServicesManager().getRegistration(EntropyService.class);
-        if (provider == null) {
-            getLogger().severe("EntropyCore is required but EntropyService is unavailable.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
-
-        entropyService = provider.getProvider();
-        airDrainController = new AirDrainController(this, entropyService, airDrainConfig);
+        entropyLookup = EntropyLookupFactory.create(this);
+        airDrainController = new AirDrainController(this, entropyLookup, airDrainConfig);
         getServer().getPluginManager().registerEvents(airDrainController, this);
         registerCommands();
         airDrainController.start();

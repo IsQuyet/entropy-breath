@@ -13,7 +13,7 @@ dependencies:
   server:
     EntropyCore:
       load: BEFORE
-      required: true
+      required: false
       join-classpath: true
 
 permissions:

@@ -1,12 +1,12 @@
 package io.github.isquyet.entropybreath.air;
 
-import io.github.isquyet.entropycore.api.EntropyService;
 import io.github.isquyet.entropybreath.config.AirDamageConfig;
 import io.github.isquyet.entropybreath.config.AirDrainConfig;
 import io.github.isquyet.entropybreath.config.AirDrainProfile;
 import io.github.isquyet.entropybreath.config.EntropyDamageType;
 import io.github.isquyet.entropybreath.config.WaterDamageConfig;
 import io.github.isquyet.entropybreath.config.WaterDrainProfile;
+import io.github.isquyet.entropybreath.entropy.EntropyLookup;
 import org.bukkit.Bukkit;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
@@ -30,7 +30,7 @@ public final class AirDrainController implements Listener {
     private static final long DEBUG_LOG_INTERVAL_TICKS = 20L;
 
     private final JavaPlugin plugin;
-    private final EntropyService entropyService;
+    private final EntropyLookup entropyLookup;
     private final AirProfileResolver profileResolver = new AirProfileResolver();
     private final BreathingProtection breathingProtection = new BreathingProtection();
     private final Map<UUID, Long> lastDamageAtTick = new HashMap<>();
@@ -45,9 +45,9 @@ public final class AirDrainController implements Listener {
     private long elapsedTicks;
     private long configGeneration;
 
-    public AirDrainController(JavaPlugin plugin, EntropyService entropyService, AirDrainConfig config) {
+    public AirDrainController(JavaPlugin plugin, EntropyLookup entropyLookup, AirDrainConfig config) {
         this.plugin = plugin;
-        this.entropyService = entropyService;
+        this.entropyLookup = entropyLookup;
         this.config = config;
     }
 
@@ -118,7 +118,7 @@ public final class AirDrainController implements Listener {
             return;
         }
 
-        int entropy = entropyService.getEntropy(player.getLocation());
+        int entropy = entropyLookup.getEntropy(player.getLocation());
         int entropyAirLoss = entropy > 0 ? profile.airLossFor(entropy) : 0;
         int heightAirLoss = config.heightAirLoss().preventRegenerationWhenActive() ? inAirHeightAirLoss(player) : 0;
         if (entropyAirLoss + heightAirLoss <= 0) {
@@ -155,7 +155,7 @@ public final class AirDrainController implements Listener {
             return;
         }
 
-        int entropy = entropyService.getEntropy(player.getLocation());
+        int entropy = entropyLookup.getEntropy(player.getLocation());
         int heightAirLoss = inWaterHeightAirLoss(player);
         if (entropy <= 0 && heightAirLoss <= 0) {
             return;
@@ -256,7 +256,7 @@ public final class AirDrainController implements Listener {
             return;
         }
 
-        int entropy = entropyService.getEntropy(player.getLocation());
+        int entropy = entropyLookup.getEntropy(player.getLocation());
         int heightAirLoss = inAirHeightAirLoss(player);
 
         int theoreticalAir = player.getRemainingAir();
@@ -297,7 +297,7 @@ public final class AirDrainController implements Listener {
             return;
         }
 
-        int entropy = entropyService.getEntropy(player.getLocation());
+        int entropy = entropyLookup.getEntropy(player.getLocation());
         if (entropy <= 0 && heightAirLoss <= 0) {
             return;
         }
