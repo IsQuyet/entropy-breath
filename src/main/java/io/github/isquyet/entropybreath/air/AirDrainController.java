@@ -263,8 +263,10 @@ public final class AirDrainController implements Listener {
         if (lossDue) {
             int currentAir = player.getRemainingAir();
             int entropyAirLoss = entropy > 0 ? profile.airLossFor(entropy) : 0;
-            int entropyRawAirLoss = currentAir <= 0 && entropyAirLoss > 0 ? profile.depletedAir().airLoss(entropyAirLoss) : entropyAirLoss;
-            int rawAirLoss = entropyRawAirLoss + heightAirLoss;
+            int environmentAirLoss = entropyAirLoss + heightAirLoss;
+            int rawAirLoss = currentAir <= 0 && environmentAirLoss > 0
+                    ? profile.depletedAir().airLoss(environmentAirLoss)
+                    : environmentAirLoss;
             if (rawAirLoss > 0) {
                 int airLoss = breathingProtection.adjustForRespiration(player, rawAirLoss, config.respirationReducesInAirLoss());
                 theoreticalAir = currentAir - airLoss;
@@ -301,8 +303,10 @@ public final class AirDrainController implements Listener {
         }
 
         int entropyAirLoss = profile.enabled() && entropy > 0 ? profile.eventAirLossFor(entropy) : 0;
-        int entropyRawAirLoss = currentAir <= 0 && entropyAirLoss > 0 ? profile.depletedAirLoss().airLoss(entropyAirLoss) : entropyAirLoss;
-        int rawAirLoss = entropyRawAirLoss + heightAirLoss;
+        int environmentAirLoss = entropyAirLoss + heightAirLoss;
+        int rawAirLoss = currentAir <= 0 && environmentAirLoss > 0
+                ? profile.depletedAirLoss().airLoss(environmentAirLoss)
+                : environmentAirLoss;
         if (rawAirLoss <= 0) {
             environmentAirLossClock.markApplied(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks());
             return;
