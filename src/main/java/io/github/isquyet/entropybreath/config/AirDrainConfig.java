@@ -1,4 +1,4 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.config;
 
 import org.bukkit.GameMode;
 import org.bukkit.configuration.ConfigurationSection;
@@ -12,7 +12,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.logging.Logger;
 
-record AirDrainConfig(
+public record AirDrainConfig(
         boolean enabled,
         boolean debug,
         BreathingEffectConfig waterBreathing,
@@ -26,7 +26,7 @@ record AirDrainConfig(
 ) {
     private static final int DEFAULT_AIR_LOSS_INTERVAL_TICKS = 20;
 
-    static AirDrainConfig load(FileConfiguration config, Logger logger) {
+    public static AirDrainConfig load(FileConfiguration config, Logger logger) {
         ConfigurationSection section = config.getConfigurationSection("air-drain");
         if (section == null) {
             logger.warning("Missing air-drain config section; using safe defaults.");
@@ -52,7 +52,7 @@ record AirDrainConfig(
         return new AirDrainConfig(enabled, debug, waterBreathing, conduitPower, nautilusBreath, respirationReducesInAirLoss, respirationReducesInWaterLoss, ignoredGameModes, inAir, inWater);
     }
 
-    boolean ignores(GameMode gameMode) {
+    public boolean ignores(GameMode gameMode) {
         return ignoredGameModes.contains(gameMode);
     }
 

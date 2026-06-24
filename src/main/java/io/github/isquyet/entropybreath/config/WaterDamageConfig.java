@@ -1,6 +1,6 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.config;
 
-record WaterDamageConfig(
+public record WaterDamageConfig(
         boolean enabled,
         int airThreshold,
         double amount,

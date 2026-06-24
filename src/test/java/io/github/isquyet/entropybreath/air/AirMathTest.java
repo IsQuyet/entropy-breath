@@ -1,5 +1,7 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.air;
 
+import io.github.isquyet.entropybreath.config.AirDamageConfig;
+import io.github.isquyet.entropybreath.config.EntropyDamageType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

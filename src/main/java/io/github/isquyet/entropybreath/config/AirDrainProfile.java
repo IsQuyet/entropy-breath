@@ -1,6 +1,6 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.config;
 
-record AirDrainProfile(
+public record AirDrainProfile(
         boolean enabled,
         boolean preventRegeneration,
         int minAir,
@@ -8,7 +8,7 @@ record AirDrainProfile(
         DepletedAirConfig depletedAir,
         AirDamageConfig damage
 ) {
-    int airLossFor(int entropy) {
+    public int airLossFor(int entropy) {
         return airLoss.airLossFor(entropy);
     }
 }

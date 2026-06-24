@@ -1,10 +1,15 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.air;
 
 import io.github.isquyet.entropycore.api.EntropyService;
+import io.github.isquyet.entropybreath.config.AirDamageConfig;
+import io.github.isquyet.entropybreath.config.AirDrainConfig;
+import io.github.isquyet.entropybreath.config.AirDrainProfile;
+import io.github.isquyet.entropybreath.config.EntropyDamageType;
+import io.github.isquyet.entropybreath.config.WaterDamageConfig;
+import io.github.isquyet.entropybreath.config.WaterDrainProfile;
 import org.bukkit.Bukkit;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -13,7 +18,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityAirChangeEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
@@ -21,14 +25,14 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
-final class AirDrainController implements Listener {
+public final class AirDrainController implements Listener {
     private static final long DEBUG_LOG_INTERVAL_TICKS = 20L;
 
     private final JavaPlugin plugin;
     private final EntropyService entropyService;
     private final AirProfileResolver profileResolver = new AirProfileResolver();
+    private final BreathingProtection breathingProtection = new BreathingProtection();
     private final Map<UUID, Long> lastDamageAtTick = new HashMap<>();
     private final Map<UUID, Integer> lastObservedAir = new HashMap<>();
     private final Map<UUID, Integer> waterAirDebt = new HashMap<>();
@@ -41,17 +45,17 @@ final class AirDrainController implements Listener {
     private long elapsedTicks;
     private long configGeneration;
 
-    AirDrainController(JavaPlugin plugin, EntropyService entropyService, AirDrainConfig config) {
+    public AirDrainController(JavaPlugin plugin, EntropyService entropyService, AirDrainConfig config) {
         this.plugin = plugin;
         this.entropyService = entropyService;
         this.config = config;
     }
 
-    void start() {
+    public void start() {
         startDrainTask();
     }
 
-    void stop() {
+    public void stop() {
         if (drainTask != null) {
             drainTask.cancel();
             drainTask = null;
@@ -59,7 +63,7 @@ final class AirDrainController implements Listener {
         clearState();
     }
 
-    void reload(AirDrainConfig config) {
+    public void reload(AirDrainConfig config) {
         this.config = config;
         clearState();
         elapsedTicks = 0L;
@@ -84,6 +88,7 @@ final class AirDrainController implements Listener {
 
         int currentAir = player.getRemainingAir();
         int requestedAir = event.getAmount();
+        // Water loss is only applied when vanilla has already decided air should decrease.
         if (requestedAir < currentAir) {
             handleWaterAirDecrease(event, player, currentAir, requestedAir);
             return;
@@ -93,7 +98,7 @@ final class AirDrainController implements Listener {
         }
 
         if (profileResolver.usesWaterProfile(player)
-                && !allowsAirRegeneration(player)
+                && !breathingProtection.allowsAirRegeneration(player, config)
                 && profileResolver.isVanillaAirRecovery(player, currentAir, requestedAir)) {
             profileResolver.markBreathableSurface(player, elapsedTicks, 1);
         }
@@ -108,7 +113,7 @@ final class AirDrainController implements Listener {
             debugAirChange(player, currentAir, requestedAir, "profile-allows-regeneration");
             return;
         }
-        if (allowsAirRegeneration(player)) {
+        if (breathingProtection.allowsAirRegeneration(player, config)) {
             debugAirChange(player, currentAir, requestedAir, "breathing-effect-allows-regeneration");
             return;
         }
@@ -143,7 +148,7 @@ final class AirDrainController implements Listener {
 
         WaterDrainProfile profile = config.inWater();
         WaterDamageConfig damage = profile.drowningDamage();
-        if (!profile.enabled() || !damage.enabled() || stopsDamage(player)) {
+        if (!profile.enabled() || !damage.enabled() || breathingProtection.stopsDamage(player, config)) {
             waterAirDebt.remove(player.getUniqueId());
             return;
         }
@@ -165,6 +170,7 @@ final class AirDrainController implements Listener {
                 + AirMath.overflowBelowThreshold(damage.airThreshold(), player.getRemainingAir());
         waterAirDebt.remove(playerId);
 
+        // Let vanilla finish its drowning reset first, then re-apply preserved overflow debt.
         long scheduledGeneration = configGeneration;
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (scheduledGeneration != configGeneration || !player.isOnline() || player.isDead()) {
@@ -222,7 +228,7 @@ final class AirDrainController implements Listener {
         UUID playerId = player.getUniqueId();
         if (profileResolver.usesActiveWaterProfile(player, elapsedTicks)) {
             WaterDamageConfig waterDamage = config.inWater().drowningDamage();
-            if (!config.inWater().enabled() || !waterDamage.enabled() || !waterDamage.preserveOverflowReset() || stopsDamage(player)) {
+            if (!config.inWater().enabled() || !waterDamage.enabled() || !waterDamage.preserveOverflowReset() || breathingProtection.stopsDamage(player, config)) {
                 waterAirDebt.remove(playerId);
             }
             return;
@@ -234,8 +240,8 @@ final class AirDrainController implements Listener {
             return;
         }
 
-        boolean stopsAirLoss = stopsAirLoss(player);
-        boolean stopsDamage = stopsDamage(player);
+        boolean stopsAirLoss = breathingProtection.stopsAirLoss(player, config);
+        boolean stopsDamage = breathingProtection.stopsDamage(player, config);
         AirDamageConfig damage = profile.damage();
         boolean lossDue = !stopsAirLoss && entropyAirLossClock.isDue(playerId, elapsedTicks, profile.airLoss().intervalTicks());
         boolean damageDue = !stopsDamage
@@ -258,7 +264,7 @@ final class AirDrainController implements Listener {
             int entropyAirLoss = profile.airLossFor(entropy);
             int rawAirLoss = currentAir <= 0 ? profile.depletedAir().airLoss(entropyAirLoss) : entropyAirLoss;
             if (rawAirLoss > 0) {
-                int airLoss = adjustForRespiration(player, rawAirLoss, config.respirationReducesInAirLoss());
+                int airLoss = breathingProtection.adjustForRespiration(player, rawAirLoss, config.respirationReducesInAirLoss());
                 theoreticalAir = currentAir - airLoss;
                 if (airLoss > 0) {
                     player.setRemainingAir(AirMath.clampedAir(profile.minAir(), theoreticalAir));
@@ -272,61 +278,6 @@ final class AirDrainController implements Listener {
         }
     }
 
-    private boolean stopsAirLoss(Player player) {
-        if (player.hasPotionEffect(PotionEffectType.WATER_BREATHING) && config.waterBreathing().stopsAirLoss()) {
-            return true;
-        }
-        if (player.hasPotionEffect(PotionEffectType.CONDUIT_POWER) && config.conduitPower().stopsAirLoss()) {
-            return true;
-        }
-        return hasNautilusBreath(player) && config.nautilusBreath().stopsAirLoss();
-    }
-
-    private boolean stopsDamage(Player player) {
-        if (player.hasPotionEffect(PotionEffectType.WATER_BREATHING) && config.waterBreathing().stopsDamage()) {
-            return true;
-        }
-        if (player.hasPotionEffect(PotionEffectType.CONDUIT_POWER) && config.conduitPower().stopsDamage()) {
-            return true;
-        }
-        return hasNautilusBreath(player) && config.nautilusBreath().stopsDamage();
-    }
-
-    private boolean allowsAirRegeneration(Player player) {
-        if (player.hasPotionEffect(PotionEffectType.WATER_BREATHING) && config.waterBreathing().allowsRegeneration()) {
-            return true;
-        }
-        if (player.hasPotionEffect(PotionEffectType.CONDUIT_POWER) && config.conduitPower().allowsRegeneration()) {
-            return true;
-        }
-        return hasNautilusBreath(player) && config.nautilusBreath().allowsRegeneration();
-    }
-
-    private boolean hasNautilusBreath(Player player) {
-        return player.hasPotionEffect(PotionEffectType.BREATH_OF_THE_NAUTILUS);
-    }
-
-    private int adjustForRespiration(Player player, int airLoss, boolean enabled) {
-        if (!enabled || airLoss <= 0) {
-            return airLoss;
-        }
-
-        ItemStack helmet = player.getInventory().getHelmet();
-        int respirationLevel = helmet == null ? 0 : helmet.getEnchantmentLevel(Enchantment.RESPIRATION);
-        if (respirationLevel <= 0) {
-            return airLoss;
-        }
-
-        int adjustedLoss = 0;
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (int ignored = 0; ignored < airLoss; ignored++) {
-            if (random.nextInt(respirationLevel + 1) == 0) {
-                adjustedLoss++;
-            }
-        }
-        return adjustedLoss;
-    }
-
     private void handleWaterAirDecrease(EntityAirChangeEvent event, Player player, int currentAir, int requestedAir) {
         if (!profileResolver.usesActiveWaterProfile(player, elapsedTicks)) {
             return;
@@ -334,7 +285,7 @@ final class AirDrainController implements Listener {
 
         WaterDrainProfile profile = config.inWater();
         UUID playerId = player.getUniqueId();
-        if (!profile.enabled() || stopsAirLoss(player)) {
+        if (!profile.enabled() || breathingProtection.stopsAirLoss(player, config)) {
             return;
         }
         if (!entropyAirLossClock.isDue(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks())) {
@@ -354,7 +305,7 @@ final class AirDrainController implements Listener {
         }
 
         int airLoss = config.respirationReducesInWaterLoss()
-                ? adjustForRespiration(player, rawAirLoss, config.respirationReducesInWaterLoss())
+                ? breathingProtection.adjustForRespiration(player, rawAirLoss, config.respirationReducesInWaterLoss())
                 : rawAirLoss;
         int theoreticalAir = currentAir - airLoss;
         if (airLoss > 0) {
@@ -405,7 +356,7 @@ final class AirDrainController implements Listener {
                 + profileResolver.debugBreathingContext(player, elapsedTicks)
                 + " waterBreathing=" + player.hasPotionEffect(PotionEffectType.WATER_BREATHING)
                 + " conduitPower=" + player.hasPotionEffect(PotionEffectType.CONDUIT_POWER)
-                + " nautilusBreath=" + hasNautilusBreath(player)
+                + " nautilusBreath=" + breathingProtection.hasNautilusBreath(player)
                 + " reason=" + reason);
     }
 
@@ -431,7 +382,7 @@ final class AirDrainController implements Listener {
                 + profileResolver.debugBreathingContext(player, elapsedTicks)
                 + " waterBreathing=" + player.hasPotionEffect(PotionEffectType.WATER_BREATHING)
                 + " conduitPower=" + player.hasPotionEffect(PotionEffectType.CONDUIT_POWER)
-                + " nautilusBreath=" + hasNautilusBreath(player));
+                + " nautilusBreath=" + breathingProtection.hasNautilusBreath(player));
     }
 
     private boolean isDebugThrottled(Map<UUID, Long> lastDebugAtTick, UUID playerId) {

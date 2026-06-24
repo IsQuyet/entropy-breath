@@ -1,5 +1,6 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.command;
 
+import io.github.isquyet.entropybreath.EntropyBreath;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import org.bukkit.command.CommandSender;
@@ -9,12 +10,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 
-final class EntropyBreathCommand implements BasicCommand {
+public final class EntropyBreathCommand implements BasicCommand {
     private static final String RELOAD_PERMISSION = "entropybreath.command.reload";
 
     private final EntropyBreath plugin;
 
-    EntropyBreathCommand(EntropyBreath plugin) {
+    public EntropyBreathCommand(EntropyBreath plugin) {
         this.plugin = plugin;
     }
 

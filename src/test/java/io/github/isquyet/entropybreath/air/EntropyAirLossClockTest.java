@@ -1,4 +1,4 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.air;
 
 import org.junit.jupiter.api.Test;
 

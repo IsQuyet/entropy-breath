@@ -1,6 +1,9 @@
 package io.github.isquyet.entropybreath;
 
 import io.github.isquyet.entropycore.api.EntropyService;
+import io.github.isquyet.entropybreath.air.AirDrainController;
+import io.github.isquyet.entropybreath.command.EntropyBreathCommand;
+import io.github.isquyet.entropybreath.config.AirDrainConfig;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -38,7 +41,7 @@ public final class EntropyBreath extends JavaPlugin {
         }
     }
 
-    void reloadEntropyBreath() {
+    public void reloadEntropyBreath() {
         reloadConfig();
         airDrainConfig = AirDrainConfig.load(getConfig(), getLogger());
         if (airDrainController != null) {

@@ -1,6 +1,6 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.config;
 
-record AirDamageConfig(
+public record AirDamageConfig(
         boolean enabled,
         int intervalTicks,
         int airThreshold,

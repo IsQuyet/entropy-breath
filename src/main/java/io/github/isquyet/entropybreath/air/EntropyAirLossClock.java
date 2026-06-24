@@ -1,4 +1,4 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.air;
 
 import java.util.HashMap;
 import java.util.Map;

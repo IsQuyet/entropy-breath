@@ -1,13 +1,13 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.config;
 
-record WaterDrainProfile(
+public record WaterDrainProfile(
         boolean enabled,
         int minAir,
         AirLossConfig eventAirLoss,
         DepletedAirConfig depletedAirLoss,
         WaterDamageConfig drowningDamage
 ) {
-    int eventAirLossFor(int entropy) {
+    public int eventAirLossFor(int entropy) {
         return eventAirLoss.airLossFor(entropy);
     }
 }

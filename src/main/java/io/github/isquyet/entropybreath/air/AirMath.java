@@ -1,4 +1,6 @@
-package io.github.isquyet.entropybreath;
+package io.github.isquyet.entropybreath.air;
+
+import io.github.isquyet.entropybreath.config.AirDamageConfig;
 
 final class AirMath {
     private AirMath() {
