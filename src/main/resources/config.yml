@@ -32,6 +32,31 @@ air-drain:
     - CREATIVE
     - SPECTATOR
 
+  # Adds oxygen pressure from absolute player Y level. Tiers below neutral-y
+  # apply at or below their y value; tiers above neutral-y apply at or above
+  # their y value. If multiple tiers match, the highest amount is used.
+  height-air-loss:
+    enabled: true
+    applies-to:
+      in-air: true
+      in-water: false
+    regeneration:
+      prevent-when-active: true
+    neutral-y: 64
+    tiers:
+      - y: 256
+        amount: 3
+      - y: 192
+        amount: 2
+      - y: 128
+        amount: 1
+      - y: 0
+        amount: 1
+      - y: -32
+        amount: 2
+      - y: -64
+        amount: 3
+
   in-air:
     enabled: true
 
@@ -43,7 +68,7 @@ air-drain:
     min-air: -20
 
     # Plugin-owned air loss outside active vanilla underwater breathing. The
-    # interval shares one per-player entropy air-loss clock with water, so
+    # interval shares one per-player environment air-loss clock with water, so
     # switching between air and water cannot reset the cadence.
     air-loss:
       interval-ticks: 20
@@ -85,7 +110,7 @@ air-drain:
     min-air: -20
 
     # Total air loss for a vanilla underwater air-decrease event when due.
-    # The interval shares one per-player entropy air-loss clock with air, so
+    # The interval shares one per-player environment air-loss clock with air, so
     # entering and leaving water cannot reset the cadence.
     air-loss:
       interval-ticks: 20

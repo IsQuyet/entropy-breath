@@ -2,16 +2,17 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-EntropyBreath is a Paper plugin that makes high-entropy areas harder to breathe in. It reads local entropy from EntropyCore, drains a player's air supply, blocks air regeneration when configured, and can damage players who stay in unsafe areas too long.
+EntropyBreath is a Paper plugin that makes dangerous environments harder to breathe in. It reads local entropy from EntropyCore, adds optional height-based oxygen pressure, drains a player's air supply, blocks air regeneration when configured, and can damage players who stay in unsafe areas too long.
 
-Use it when you want EntropyCore danger zones to affect moment-to-moment survival without adding new commands or custom items.
+Use it when you want EntropyCore danger zones or extreme heights to affect moment-to-moment survival without adding new commands or custom items.
 
 ## Features
 
-EntropyBreath focuses on one gameplay loop: entropy makes air scarce.
+EntropyBreath focuses on one gameplay loop: environmental pressure makes air scarce.
 
-- Drains air while a player stands in an area where entropy is above `0`
+- Drains air while a player stands in an area where entropy or height pressure is active
 - Scales air loss through configurable entropy tiers
+- Adds configurable air loss at extreme absolute Y levels
 - Blocks natural air regeneration in dangerous areas by default
 - Applies configurable damage after air is depleted
 - Respects Water Breathing, Conduit Power, Breath of the Nautilus, and Respiration
@@ -48,9 +49,11 @@ plugins/entropy-breath-1.0-SNAPSHOT.jar
 
 ## Default gameplay
 
-By default, entropy affects breathing only when players are not in water.
+By default, entropy and height pressure affect breathing only when players are not in water.
 
 When a player enters a location with entropy above `0`, EntropyBreath decreases the player's air every `20` ticks. Higher entropy values remove more air per interval. At the default settings, entropy values `1`, `2`, `3`, `5`, and `8` map to stronger drain tiers.
+
+Height pressure uses the player's absolute Y level. The default config adds extra air loss at Y `0` and below, then again at Y `128` and above. Y levels near sea level add no height pressure.
 
 In water, vanilla Minecraft already drains air and applies drowning damage. EntropyBreath leaves that behavior unchanged by default. Enable `air-drain.in-water` only if entropy should make underwater areas more dangerous too.
 
@@ -65,7 +68,11 @@ Key options:
 | `air-drain.enabled` | `true` | Enables the plugin's air-drain logic |
 | `air-drain.debug` | `false` | Logs drain and regeneration decisions |
 | `air-drain.ignored-game-modes` | `CREATIVE`, `SPECTATOR` | Skips players in these game modes |
-| `air-drain.in-air.regeneration.prevent` | `true` | Blocks air regeneration in areas where entropy is above `0` |
+| `air-drain.height-air-loss.enabled` | `true` | Adds air loss from absolute Y level |
+| `air-drain.height-air-loss.applies-to.in-air` | `true` | Applies height air loss when players are not in water |
+| `air-drain.height-air-loss.applies-to.in-water` | `false` | Applies height air loss to underwater air loss |
+| `air-drain.height-air-loss.regeneration.prevent-when-active` | `true` | Blocks natural air regeneration when height pressure is active |
+| `air-drain.in-air.regeneration.prevent` | `true` | Allows EntropyBreath to block air regeneration in dangerous areas |
 | `air-drain.in-air.air-loss.interval-ticks` | `20` | Sets the drain interval when players are not in water |
 | `air-drain.in-air.damage.enabled` | `true` | Damages players after depleted air reaches the threshold |
 | `air-drain.in-water.enabled` | `false` | Adds entropy scaling to underwater air loss |
@@ -89,6 +96,28 @@ air-loss:
 ```
 
 Use lower amounts when players should have more time to leave an entropy area. Use higher amounts when entropy zones should force players to retreat.
+
+The default height tiers add oxygen pressure at extreme Y levels:
+
+```yaml
+height-air-loss:
+  neutral-y: 64
+  tiers:
+    - y: 256
+      amount: 3
+    - y: 192
+      amount: 2
+    - y: 128
+      amount: 1
+    - y: 0
+      amount: 1
+    - y: -32
+      amount: 2
+    - y: -64
+      amount: 3
+```
+
+Tiers below `neutral-y` apply at or below their `y` value. Tiers above `neutral-y` apply at or above their `y` value. If multiple height tiers match, EntropyBreath uses the highest `amount`.
 
 ## Breathing protection
 
@@ -125,7 +154,7 @@ load: POSTWORLD
 The description used by Paper comes from `gradle.properties`:
 
 ```properties
-description=A Paper plugin that makes EntropyCore danger zones drain player air.
+description=A Paper plugin that makes entropy and extreme height drain player air.
 ```
 
 ## Build from source
@@ -161,7 +190,7 @@ build/libs/entropy-breath-1.0-SNAPSHOT.jar
 Start with the server log when the plugin does not behave as expected.
 
 - **EntropyBreath disables itself**: Install EntropyCore and confirm it loads before EntropyBreath
-- **Players do not lose air**: Check that the player's local entropy is above `0` and `air-drain.enabled` is `true`
+- **Players do not lose air**: Check that local entropy or height pressure is active and `air-drain.enabled` is `true`
 - **Creative players are ignored**: Remove `CREATIVE` from `air-drain.ignored-game-modes`
-- **Water behavior does not change**: Set `air-drain.in-water.enabled` to `true`
+- **Water behavior does not change**: Set `air-drain.in-water.enabled` to `true` for entropy, or `air-drain.height-air-loss.applies-to.in-water` to `true` for height pressure
 - **Reload command is denied**: Grant `entropybreath.command.reload` or run the command as an operator

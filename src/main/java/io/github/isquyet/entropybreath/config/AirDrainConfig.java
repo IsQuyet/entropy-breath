@@ -21,6 +21,7 @@ public record AirDrainConfig(
         boolean respirationReducesInAirLoss,
         boolean respirationReducesInWaterLoss,
         Set<GameMode> ignoredGameModes,
+        HeightAirLossConfig heightAirLoss,
         AirDrainProfile inAir,
         WaterDrainProfile inWater
 ) {
@@ -30,7 +31,7 @@ public record AirDrainConfig(
         ConfigurationSection section = config.getConfigurationSection("air-drain");
         if (section == null) {
             logger.warning("Missing air-drain config section; using safe defaults.");
-            return new AirDrainConfig(true, false, defaultBreathingEffect(), defaultBreathingEffect(), defaultNautilusBreathEffect(), true, false, defaultIgnoredGameModes(), defaultInAirProfile(), defaultInWaterProfile());
+            return new AirDrainConfig(true, false, defaultBreathingEffect(), defaultBreathingEffect(), defaultNautilusBreathEffect(), true, false, defaultIgnoredGameModes(), defaultHeightAirLoss(), defaultInAirProfile(), defaultInWaterProfile());
         }
 
         boolean enabled = section.getBoolean("enabled", true);
@@ -46,10 +47,11 @@ public record AirDrainConfig(
             respirationReducesInWaterLoss = protectionSection.getBoolean("respiration.reduces-in-water-loss", false);
         }
         Set<GameMode> ignoredGameModes = loadIgnoredGameModes(section, logger);
+        HeightAirLossConfig heightAirLoss = loadHeightAirLoss(section.getConfigurationSection("height-air-loss"), defaultHeightAirLoss(), logger);
         AirDrainProfile inAir = loadAirProfile(section.getConfigurationSection("in-air"), defaultInAirProfile(), logger, "in-air");
         WaterDrainProfile inWater = loadWaterProfile(section.getConfigurationSection("in-water"), defaultInWaterProfile(), logger, "in-water");
 
-        return new AirDrainConfig(enabled, debug, waterBreathing, conduitPower, nautilusBreath, respirationReducesInAirLoss, respirationReducesInWaterLoss, ignoredGameModes, inAir, inWater);
+        return new AirDrainConfig(enabled, debug, waterBreathing, conduitPower, nautilusBreath, respirationReducesInAirLoss, respirationReducesInWaterLoss, ignoredGameModes, heightAirLoss, inAir, inWater);
     }
 
     public boolean ignores(GameMode gameMode) {
@@ -142,6 +144,41 @@ public record AirDrainConfig(
                 Math.max(1, section.getInt("interval-ticks", fallback.intervalTicks())),
                 loadTiers(section, fallback.tiers(), logger, path)
         );
+    }
+
+    private static HeightAirLossConfig loadHeightAirLoss(ConfigurationSection section, HeightAirLossConfig fallback, Logger logger) {
+        if (section == null) {
+            return fallback;
+        }
+
+        return new HeightAirLossConfig(
+                section.getBoolean("enabled", fallback.enabled()),
+                section.getBoolean("applies-to.in-air", fallback.appliesInAir()),
+                section.getBoolean("applies-to.in-water", fallback.appliesInWater()),
+                section.getBoolean("regeneration.prevent-when-active", fallback.preventRegenerationWhenActive()),
+                section.getInt("neutral-y", fallback.neutralY()),
+                loadHeightAirLossTiers(section, fallback.tiers(), logger)
+        );
+    }
+
+    private static List<HeightAirLossTier> loadHeightAirLossTiers(ConfigurationSection section, List<HeightAirLossTier> fallback, Logger logger) {
+        List<HeightAirLossTier> tiers = new ArrayList<>();
+        for (var tierMap : section.getMapList("tiers")) {
+            Object yValue = tierMap.get("y");
+            Object airLossValue = tierMap.get("amount");
+            if (!(yValue instanceof Number y) || !(airLossValue instanceof Number airLoss)) {
+                logger.warning("Skipping invalid height air loss tier in air-drain.height-air-loss: " + tierMap);
+                continue;
+            }
+
+            tiers.add(new HeightAirLossTier(y.intValue(), Math.max(0, airLoss.intValue())));
+        }
+
+        if (tiers.isEmpty()) {
+            logger.warning("No valid height air loss tiers configured in air-drain.height-air-loss; using defaults.");
+            return fallback;
+        }
+        return List.copyOf(tiers);
     }
 
     private static DepletedAirConfig loadDepletedAir(ConfigurationSection section, DepletedAirConfig fallback, Logger logger, String path) {
@@ -256,6 +293,10 @@ public record AirDrainConfig(
         return new WaterDrainProfile(false, -20, defaultAirLoss(), defaultEntropyDepletedAir(), new WaterDamageConfig(false, -20, 2.0D, true, 0));
     }
 
+    private static HeightAirLossConfig defaultHeightAirLoss() {
+        return new HeightAirLossConfig(true, true, false, true, 64, defaultHeightAirLossTiers());
+    }
+
     private static AirLossConfig defaultAirLoss() {
         return new AirLossConfig(DEFAULT_AIR_LOSS_INTERVAL_TICKS, defaultTiers());
     }
@@ -275,6 +316,17 @@ public record AirDrainConfig(
                 new AirDrainTier(3, 4),
                 new AirDrainTier(5, 7),
                 new AirDrainTier(8, 12)
+        );
+    }
+
+    private static List<HeightAirLossTier> defaultHeightAirLossTiers() {
+        return List.of(
+                new HeightAirLossTier(-64, 3),
+                new HeightAirLossTier(-32, 2),
+                new HeightAirLossTier(0, 1),
+                new HeightAirLossTier(128, 1),
+                new HeightAirLossTier(192, 2),
+                new HeightAirLossTier(256, 3)
         );
     }
 }

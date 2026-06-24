@@ -36,7 +36,7 @@ public final class AirDrainController implements Listener {
     private final Map<UUID, Long> lastDamageAtTick = new HashMap<>();
     private final Map<UUID, Integer> lastObservedAir = new HashMap<>();
     private final Map<UUID, Integer> waterAirDebt = new HashMap<>();
-    private final EntropyAirLossClock entropyAirLossClock = new EntropyAirLossClock();
+    private final EntropyAirLossClock environmentAirLossClock = new EntropyAirLossClock();
     private final Map<UUID, Long> lastDebugAirChangeAtTick = new HashMap<>();
     private final Map<UUID, Long> lastDebugObservedAtTick = new HashMap<>();
 
@@ -119,12 +119,14 @@ public final class AirDrainController implements Listener {
         }
 
         int entropy = entropyService.getEntropy(player.getLocation());
-        if (entropy <= 0) {
-            debugAirChange(player, currentAir, requestedAir, "no-entropy");
+        int entropyAirLoss = entropy > 0 ? profile.airLossFor(entropy) : 0;
+        int heightAirLoss = config.heightAirLoss().preventRegenerationWhenActive() ? inAirHeightAirLoss(player) : 0;
+        if (entropyAirLoss + heightAirLoss <= 0) {
+            debugAirChange(player, currentAir, requestedAir, "no-environment-pressure entropy=" + entropy + " heightAirLoss=" + heightAirLoss);
             return;
         }
 
-        debugAirChange(player, currentAir, requestedAir, "blocked-regeneration entropy=" + entropy);
+        debugAirChange(player, currentAir, requestedAir, "blocked-regeneration entropy=" + entropy + " entropyAirLoss=" + entropyAirLoss + " heightAirLoss=" + heightAirLoss);
         event.setAmount(currentAir);
     }
 
@@ -154,7 +156,8 @@ public final class AirDrainController implements Listener {
         }
 
         int entropy = entropyService.getEntropy(player.getLocation());
-        if (entropy <= 0) {
+        int heightAirLoss = inWaterHeightAirLoss(player);
+        if (entropy <= 0 && heightAirLoss <= 0) {
             return;
         }
 
@@ -243,7 +246,7 @@ public final class AirDrainController implements Listener {
         boolean stopsAirLoss = breathingProtection.stopsAirLoss(player, config);
         boolean stopsDamage = breathingProtection.stopsDamage(player, config);
         AirDamageConfig damage = profile.damage();
-        boolean lossDue = !stopsAirLoss && entropyAirLossClock.isDue(playerId, elapsedTicks, profile.airLoss().intervalTicks());
+        boolean lossDue = !stopsAirLoss && environmentAirLossClock.isDue(playerId, elapsedTicks, profile.airLoss().intervalTicks());
         boolean damageDue = !stopsDamage
                 && damage.enabled()
                 && damage.amount() > 0.0D
@@ -254,26 +257,25 @@ public final class AirDrainController implements Listener {
         }
 
         int entropy = entropyService.getEntropy(player.getLocation());
-        if (entropy <= 0) {
-            return;
-        }
+        int heightAirLoss = inAirHeightAirLoss(player);
 
         int theoreticalAir = player.getRemainingAir();
         if (lossDue) {
             int currentAir = player.getRemainingAir();
-            int entropyAirLoss = profile.airLossFor(entropy);
-            int rawAirLoss = currentAir <= 0 ? profile.depletedAir().airLoss(entropyAirLoss) : entropyAirLoss;
+            int entropyAirLoss = entropy > 0 ? profile.airLossFor(entropy) : 0;
+            int entropyRawAirLoss = currentAir <= 0 && entropyAirLoss > 0 ? profile.depletedAir().airLoss(entropyAirLoss) : entropyAirLoss;
+            int rawAirLoss = entropyRawAirLoss + heightAirLoss;
             if (rawAirLoss > 0) {
                 int airLoss = breathingProtection.adjustForRespiration(player, rawAirLoss, config.respirationReducesInAirLoss());
                 theoreticalAir = currentAir - airLoss;
                 if (airLoss > 0) {
                     player.setRemainingAir(AirMath.clampedAir(profile.minAir(), theoreticalAir));
                 }
-                entropyAirLossClock.markApplied(playerId, elapsedTicks, profile.airLoss().intervalTicks());
+                environmentAirLossClock.markApplied(playerId, elapsedTicks, profile.airLoss().intervalTicks());
             }
         }
 
-        if (!stopsDamage) {
+        if (!stopsDamage && (entropy > 0 || heightAirLoss > 0)) {
             damageIfAirDepleted(player, profile, theoreticalAir);
         }
     }
@@ -283,24 +285,26 @@ public final class AirDrainController implements Listener {
             return;
         }
 
-        WaterDrainProfile profile = config.inWater();
         UUID playerId = player.getUniqueId();
-        if (!profile.enabled() || breathingProtection.stopsAirLoss(player, config)) {
+        WaterDrainProfile profile = config.inWater();
+        int heightAirLoss = inWaterHeightAirLoss(player);
+        if ((!profile.enabled() && heightAirLoss <= 0) || breathingProtection.stopsAirLoss(player, config)) {
             return;
         }
-        if (!entropyAirLossClock.isDue(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks())) {
+        if (!environmentAirLossClock.isDue(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks())) {
             return;
         }
 
         int entropy = entropyService.getEntropy(player.getLocation());
-        if (entropy <= 0) {
+        if (entropy <= 0 && heightAirLoss <= 0) {
             return;
         }
 
-        int entropyAirLoss = profile.eventAirLossFor(entropy);
-        int rawAirLoss = currentAir <= 0 ? profile.depletedAirLoss().airLoss(entropyAirLoss) : entropyAirLoss;
+        int entropyAirLoss = profile.enabled() && entropy > 0 ? profile.eventAirLossFor(entropy) : 0;
+        int entropyRawAirLoss = currentAir <= 0 && entropyAirLoss > 0 ? profile.depletedAirLoss().airLoss(entropyAirLoss) : entropyAirLoss;
+        int rawAirLoss = entropyRawAirLoss + heightAirLoss;
         if (rawAirLoss <= 0) {
-            entropyAirLossClock.markApplied(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks());
+            environmentAirLossClock.markApplied(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks());
             return;
         }
 
@@ -318,7 +322,15 @@ public final class AirDrainController implements Listener {
                 waterAirDebt.merge(playerId, debt, Integer::sum);
             }
         }
-        entropyAirLossClock.markApplied(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks());
+        environmentAirLossClock.markApplied(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks());
+    }
+
+    private int inAirHeightAirLoss(Player player) {
+        return config.heightAirLoss().inAirLossFor(player.getLocation().getBlockY());
+    }
+
+    private int inWaterHeightAirLoss(Player player) {
+        return config.heightAirLoss().inWaterLossFor(player.getLocation().getBlockY());
     }
 
     private boolean isDamageDue(UUID playerId, AirDamageConfig damage) {
@@ -399,7 +411,7 @@ public final class AirDrainController implements Listener {
         lastDamageAtTick.remove(playerId);
         lastObservedAir.remove(playerId);
         waterAirDebt.remove(playerId);
-        entropyAirLossClock.remove(playerId);
+        environmentAirLossClock.remove(playerId);
         lastDebugAirChangeAtTick.remove(playerId);
         lastDebugObservedAtTick.remove(playerId);
         profileResolver.remove(playerId);
@@ -409,7 +421,7 @@ public final class AirDrainController implements Listener {
         lastDamageAtTick.clear();
         lastObservedAir.clear();
         waterAirDebt.clear();
-        entropyAirLossClock.clear();
+        environmentAirLossClock.clear();
         lastDebugAirChangeAtTick.clear();
         lastDebugObservedAtTick.clear();
         profileResolver.clear();
