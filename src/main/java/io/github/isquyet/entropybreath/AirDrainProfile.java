@@ -5,7 +5,6 @@ import java.util.List;
 record AirDrainProfile(
         boolean enabled,
         boolean preventRegeneration,
-        boolean allowNegativeAir,
         int minAir,
         List<AirDrainTier> tiers,
         DepletedAirConfig depletedAir,

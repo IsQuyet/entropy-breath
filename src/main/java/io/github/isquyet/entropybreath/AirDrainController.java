@@ -160,19 +160,20 @@ final class AirDrainController implements Listener {
             return;
         }
 
+        int theoreticalAir = player.getRemainingAir();
         if (!stopsAirLoss) {
             int currentAir = player.getRemainingAir();
             int entropyAirLoss = profile.airLossFor(entropy);
             int rawAirLoss = currentAir <= 0 ? profile.depletedAir().airLoss(entropyAirLoss) : entropyAirLoss;
             int airLoss = adjustForRespiration(player, rawAirLoss);
             if (airLoss > 0) {
-                int minimumAir = profile.allowNegativeAir() ? profile.minAir() : 0;
-                player.setRemainingAir(Math.max(minimumAir, currentAir - airLoss));
+                theoreticalAir = currentAir - airLoss;
+                player.setRemainingAir(Math.max(profile.minAir(), theoreticalAir));
             }
         }
 
         if (!stopsDamage) {
-            damageIfAirDepleted(player, profile);
+            damageIfAirDepleted(player, profile, theoreticalAir);
         }
     }
 
@@ -231,9 +232,10 @@ final class AirDrainController implements Listener {
         return adjustedLoss;
     }
 
-    private void damageIfAirDepleted(Player player, AirDrainProfile profile) {
+    private void damageIfAirDepleted(Player player, AirDrainProfile profile, int theoreticalAir) {
         AirDamageConfig damage = profile.damage();
-        if (!damage.enabled() || damage.amount() <= 0.0D || player.getRemainingAir() > damage.airThreshold()) {
+        int effectiveAir = Math.min(player.getRemainingAir(), theoreticalAir);
+        if (!damage.enabled() || damage.amount() <= 0.0D || effectiveAir > damage.airThreshold()) {
             return;
         }
 
@@ -245,7 +247,9 @@ final class AirDrainController implements Listener {
         player.damage(damage.amount(), damageSourceFor(damage.type()));
         lastDamageAtTick.put(player.getUniqueId(), elapsedTicks);
         if (damage.resetAirAfterDamage()) {
-            player.setRemainingAir(damage.resetAirTo());
+            int overflow = Math.max(0, damage.airThreshold() - theoreticalAir);
+            int resetAir = damage.resetAirTo() - overflow;
+            player.setRemainingAir(Math.max(profile.minAir(), resetAir));
         }
     }
 

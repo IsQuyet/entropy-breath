@@ -35,9 +35,8 @@ air-drain:
     enabled: true
     prevent-regeneration: true
 
-    # If enabled, air can drop below 0. Vanilla air values commonly use -20 as
-    # the drowning threshold. Entropy damage below uses that threshold by default.
-    allow-negative-air: true
+    # Lowest air value the plugin can set. Vanilla drowning commonly uses -20 as
+    # the damage threshold.
     min-air: -20
 
     # EntropyCore base entropy is intentionally small, so these tiers are tuned
@@ -76,7 +75,6 @@ air-drain:
     # Enable these only if entropy should make water more dangerous.
     enabled: false
     prevent-regeneration: false
-    allow-negative-air: true
     min-air: -20
 
     tiers:

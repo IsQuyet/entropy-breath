@@ -89,11 +89,7 @@ record AirDrainConfig(
 
         boolean enabled = section.getBoolean("enabled", fallback.enabled());
         boolean preventRegeneration = section.getBoolean("prevent-regeneration", fallback.preventRegeneration());
-        boolean allowNegativeAir = section.getBoolean("allow-negative-air", fallback.allowNegativeAir());
         int minAir = section.getInt("min-air", fallback.minAir());
-        if (!allowNegativeAir && minAir < 0) {
-            minAir = 0;
-        }
         List<AirDrainTier> tiers = loadTiers(section, fallback.tiers(), logger, path);
         DepletedAirConfig depletedAir = loadDepletedAir(section.getConfigurationSection("depleted-air"), fallback.depletedAir(), logger, path);
         AirDamageConfig damage = loadDamage(section.getConfigurationSection("damage"), fallback.damage(), logger, path);
@@ -102,7 +98,7 @@ record AirDrainConfig(
                     + minAir + "); using " + minAir + " instead.");
             damage = damage.withAirThreshold(minAir);
         }
-        return new AirDrainProfile(enabled, preventRegeneration, allowNegativeAir, minAir, tiers, depletedAir, damage);
+        return new AirDrainProfile(enabled, preventRegeneration, minAir, tiers, depletedAir, damage);
     }
 
     private static DepletedAirConfig loadDepletedAir(ConfigurationSection section, DepletedAirConfig fallback, Logger logger, String path) {
@@ -196,11 +192,11 @@ record AirDrainConfig(
     }
 
     private static AirDrainProfile defaultInAirProfile() {
-        return new AirDrainProfile(true, true, true, -20, defaultTiers(), defaultFixedDepletedAir(), new AirDamageConfig(true, 20, -20, 2.0D, EntropyDamageType.SUFFOCATION, true, 0));
+        return new AirDrainProfile(true, true, -20, defaultTiers(), defaultFixedDepletedAir(), new AirDamageConfig(true, 20, -20, 2.0D, EntropyDamageType.SUFFOCATION, true, 0));
     }
 
     private static AirDrainProfile defaultInWaterProfile() {
-        return new AirDrainProfile(false, false, true, -20, defaultTiers(), defaultEntropyDepletedAir(), new AirDamageConfig(false, 20, -20, 2.0D, EntropyDamageType.DROWNING, true, 0));
+        return new AirDrainProfile(false, false, -20, defaultTiers(), defaultEntropyDepletedAir(), new AirDamageConfig(false, 20, -20, 2.0D, EntropyDamageType.DROWNING, true, 0));
     }
 
     private static DepletedAirConfig defaultFixedDepletedAir() {
