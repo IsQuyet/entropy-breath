@@ -14,9 +14,11 @@ import java.util.logging.Logger;
 
 record AirDrainConfig(
         boolean enabled,
+        boolean debug,
         int intervalTicks,
         BreathingEffectConfig waterBreathing,
         BreathingEffectConfig conduitPower,
+        BreathingEffectConfig nautilusBreath,
         boolean respirationReducesAirLoss,
         Set<GameMode> ignoredGameModes,
         AirDrainProfile inAir,
@@ -28,21 +30,23 @@ record AirDrainConfig(
         ConfigurationSection section = config.getConfigurationSection("air-drain");
         if (section == null) {
             logger.warning("Missing air-drain config section; using safe defaults.");
-            return new AirDrainConfig(true, DEFAULT_INTERVAL_TICKS, defaultBreathingEffect(), defaultBreathingEffect(), true, defaultIgnoredGameModes(), defaultInAirProfile(), defaultInWaterProfile());
+            return new AirDrainConfig(true, false, DEFAULT_INTERVAL_TICKS, defaultBreathingEffect(), defaultBreathingEffect(), defaultNautilusBreathEffect(), true, defaultIgnoredGameModes(), defaultInAirProfile(), defaultInWaterProfile());
         }
 
         boolean enabled = section.getBoolean("enabled", true);
+        boolean debug = section.getBoolean("debug", false);
         int intervalTicks = Math.max(1, section.getInt("interval-ticks", DEFAULT_INTERVAL_TICKS));
         ConfigurationSection protectionSection = section.getConfigurationSection("breathing-protection");
         BreathingEffectConfig waterBreathing = loadBreathingEffect(protectionSection, "water-breathing", defaultBreathingEffect());
         BreathingEffectConfig conduitPower = loadBreathingEffect(protectionSection, "conduit-power", defaultBreathingEffect());
+        BreathingEffectConfig nautilusBreath = loadBreathingEffect(protectionSection, "nautilus-breath", defaultNautilusBreathEffect());
         boolean respirationReducesAirLoss = protectionSection == null
                 || protectionSection.getBoolean("respiration.reduces-air-loss", true);
         Set<GameMode> ignoredGameModes = loadIgnoredGameModes(section, logger);
         AirDrainProfile inAir = loadProfile(section.getConfigurationSection("in-air"), defaultInAirProfile(), logger, "in-air");
         AirDrainProfile inWater = loadProfile(section.getConfigurationSection("in-water"), defaultInWaterProfile(), logger, "in-water");
 
-        return new AirDrainConfig(enabled, intervalTicks, waterBreathing, conduitPower, respirationReducesAirLoss, ignoredGameModes, inAir, inWater);
+        return new AirDrainConfig(enabled, debug, intervalTicks, waterBreathing, conduitPower, nautilusBreath, respirationReducesAirLoss, ignoredGameModes, inAir, inWater);
     }
 
     boolean ignores(GameMode gameMode) {
@@ -158,6 +162,10 @@ record AirDrainConfig(
 
     private static BreathingEffectConfig defaultBreathingEffect() {
         return new BreathingEffectConfig(true, true, true);
+    }
+
+    private static BreathingEffectConfig defaultNautilusBreathEffect() {
+        return new BreathingEffectConfig(true, true, false);
     }
 
     private static AirDrainProfile defaultInAirProfile() {

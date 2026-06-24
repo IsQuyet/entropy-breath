@@ -1,5 +1,7 @@
 air-drain:
   enabled: true
+  # Logs air regeneration and drain decisions for testing. Keep disabled on live servers.
+  debug: false
   # Main scan interval. Lower values react faster but run more often.
   interval-ticks: 20
 
@@ -16,6 +18,11 @@ air-drain:
       stops-air-loss: true
       stops-damage: true
       allows-regeneration: true
+    # Breath of the Nautilus pauses oxygen consumption without refilling air.
+    nautilus-breath:
+      stops-air-loss: true
+      stops-damage: true
+      allows-regeneration: false
     respiration:
       reduces-air-loss: true
 
