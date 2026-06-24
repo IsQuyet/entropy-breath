@@ -15,49 +15,52 @@ import java.util.logging.Logger;
 record AirDrainConfig(
         boolean enabled,
         boolean debug,
-        int intervalTicks,
         BreathingEffectConfig waterBreathing,
         BreathingEffectConfig conduitPower,
         BreathingEffectConfig nautilusBreath,
-        boolean respirationReducesAirLoss,
+        boolean respirationReducesInAirLoss,
+        boolean respirationReducesInWaterLoss,
         Set<GameMode> ignoredGameModes,
         AirDrainProfile inAir,
-        AirDrainProfile inWater
+        WaterDrainProfile inWater
 ) {
-    private static final int DEFAULT_INTERVAL_TICKS = 20;
+    private static final int DEFAULT_AIR_LOSS_INTERVAL_TICKS = 20;
 
     static AirDrainConfig load(FileConfiguration config, Logger logger) {
         ConfigurationSection section = config.getConfigurationSection("air-drain");
         if (section == null) {
             logger.warning("Missing air-drain config section; using safe defaults.");
-            return new AirDrainConfig(true, false, DEFAULT_INTERVAL_TICKS, defaultBreathingEffect(), defaultBreathingEffect(), defaultNautilusBreathEffect(), true, defaultIgnoredGameModes(), defaultInAirProfile(), defaultInWaterProfile());
+            return new AirDrainConfig(true, false, defaultBreathingEffect(), defaultBreathingEffect(), defaultNautilusBreathEffect(), true, false, defaultIgnoredGameModes(), defaultInAirProfile(), defaultInWaterProfile());
         }
 
         boolean enabled = section.getBoolean("enabled", true);
         boolean debug = section.getBoolean("debug", false);
-        int intervalTicks = Math.max(1, section.getInt("interval-ticks", DEFAULT_INTERVAL_TICKS));
         ConfigurationSection protectionSection = section.getConfigurationSection("breathing-protection");
         BreathingEffectConfig waterBreathing = loadBreathingEffect(protectionSection, "water-breathing", defaultBreathingEffect());
         BreathingEffectConfig conduitPower = loadBreathingEffect(protectionSection, "conduit-power", defaultBreathingEffect());
         BreathingEffectConfig nautilusBreath = loadBreathingEffect(protectionSection, "nautilus-breath", defaultNautilusBreathEffect());
-        boolean respirationReducesAirLoss = protectionSection == null
-                || protectionSection.getBoolean("respiration.reduces-air-loss", true);
+        boolean respirationReducesInAirLoss = true;
+        boolean respirationReducesInWaterLoss = false;
+        if (protectionSection != null) {
+            respirationReducesInAirLoss = protectionSection.getBoolean("respiration.reduces-in-air-loss", true);
+            respirationReducesInWaterLoss = protectionSection.getBoolean("respiration.reduces-in-water-loss", false);
+        }
         Set<GameMode> ignoredGameModes = loadIgnoredGameModes(section, logger);
-        AirDrainProfile inAir = loadProfile(section.getConfigurationSection("in-air"), defaultInAirProfile(), logger, "in-air");
-        AirDrainProfile inWater = loadProfile(section.getConfigurationSection("in-water"), defaultInWaterProfile(), logger, "in-water");
+        AirDrainProfile inAir = loadAirProfile(section.getConfigurationSection("in-air"), defaultInAirProfile(), logger, "in-air");
+        WaterDrainProfile inWater = loadWaterProfile(section.getConfigurationSection("in-water"), defaultInWaterProfile(), logger, "in-water");
 
-        return new AirDrainConfig(enabled, debug, intervalTicks, waterBreathing, conduitPower, nautilusBreath, respirationReducesAirLoss, ignoredGameModes, inAir, inWater);
+        return new AirDrainConfig(enabled, debug, waterBreathing, conduitPower, nautilusBreath, respirationReducesInAirLoss, respirationReducesInWaterLoss, ignoredGameModes, inAir, inWater);
     }
 
     boolean ignores(GameMode gameMode) {
         return ignoredGameModes.contains(gameMode);
     }
 
-    AirDrainProfile profileFor(boolean inWater) {
-        return inWater ? this.inWater : inAir;
-    }
-
     private static Set<GameMode> loadIgnoredGameModes(ConfigurationSection section, Logger logger) {
+        if (!section.contains("ignored-game-modes")) {
+            return defaultIgnoredGameModes();
+        }
+
         Set<GameMode> gameModes = EnumSet.noneOf(GameMode.class);
         for (String rawGameMode : section.getStringList("ignored-game-modes")) {
             try {
@@ -66,7 +69,7 @@ record AirDrainConfig(
                 logger.warning("Ignoring unknown game mode in air-drain.ignored-game-modes: " + rawGameMode);
             }
         }
-        return Set.copyOf(gameModes.isEmpty() ? defaultIgnoredGameModes() : gameModes);
+        return Set.copyOf(gameModes);
     }
 
     private static BreathingEffectConfig loadBreathingEffect(ConfigurationSection section, String path, BreathingEffectConfig fallback) {
@@ -81,16 +84,16 @@ record AirDrainConfig(
         );
     }
 
-    private static AirDrainProfile loadProfile(ConfigurationSection section, AirDrainProfile fallback, Logger logger, String path) {
+    private static AirDrainProfile loadAirProfile(ConfigurationSection section, AirDrainProfile fallback, Logger logger, String path) {
         if (section == null) {
             logger.warning("Missing air-drain." + path + " config section; using defaults.");
             return fallback;
         }
 
         boolean enabled = section.getBoolean("enabled", fallback.enabled());
-        boolean preventRegeneration = section.getBoolean("prevent-regeneration", fallback.preventRegeneration());
+        boolean preventRegeneration = section.getBoolean("regeneration.prevent", fallback.preventRegeneration());
         int minAir = section.getInt("min-air", fallback.minAir());
-        List<AirDrainTier> tiers = loadTiers(section, fallback.tiers(), logger, path);
+        AirLossConfig airLoss = loadAirLoss(section, "air-loss", fallback.airLoss(), logger, path + ".air-loss");
         DepletedAirConfig depletedAir = loadDepletedAir(section.getConfigurationSection("depleted-air"), fallback.depletedAir(), logger, path);
         AirDamageConfig damage = loadDamage(section.getConfigurationSection("damage"), fallback.damage(), logger, path);
         if (damage.enabled() && damage.airThreshold() < minAir) {
@@ -98,7 +101,47 @@ record AirDrainConfig(
                     + minAir + "); using " + minAir + " instead.");
             damage = damage.withAirThreshold(minAir);
         }
-        return new AirDrainProfile(enabled, preventRegeneration, minAir, tiers, depletedAir, damage);
+        return new AirDrainProfile(enabled, preventRegeneration, minAir, airLoss, depletedAir, damage);
+    }
+
+    private static WaterDrainProfile loadWaterProfile(ConfigurationSection section, WaterDrainProfile fallback, Logger logger, String path) {
+        if (section == null) {
+            logger.warning("Missing air-drain." + path + " config section; using defaults.");
+            return fallback;
+        }
+
+        boolean enabled = section.getBoolean("enabled", fallback.enabled());
+        int minAir = section.getInt("min-air", fallback.minAir());
+        AirLossConfig eventAirLoss = loadAirLoss(section, "air-loss", fallback.eventAirLoss(), logger, path + ".air-loss");
+        DepletedAirConfig depletedAirLoss = loadDepletedAir(
+                section.getConfigurationSection("depleted-air-loss"),
+                fallback.depletedAirLoss(),
+                logger,
+                path
+        );
+        WaterDamageConfig drowningDamage = loadWaterDamage(
+                section.getConfigurationSection("drowning-damage"),
+                fallback.drowningDamage()
+        );
+        if (drowningDamage.enabled() && drowningDamage.airThreshold() < minAir) {
+            logger.warning("air-drain." + path + ".drowning-damage.air-threshold is below the minimum reachable air ("
+                    + minAir + "); using " + minAir + " instead.");
+            drowningDamage = drowningDamage.withAirThreshold(minAir);
+        }
+        return new WaterDrainProfile(enabled, minAir, eventAirLoss, depletedAirLoss, drowningDamage);
+    }
+
+    private static AirLossConfig loadAirLoss(ConfigurationSection parent, String childPath, AirLossConfig fallback, Logger logger, String path) {
+        ConfigurationSection section = parent.getConfigurationSection(childPath);
+        if (section == null) {
+            logger.warning("Missing air-drain." + path + " config section; using defaults.");
+            return fallback;
+        }
+
+        return new AirLossConfig(
+                Math.max(1, section.getInt("interval-ticks", fallback.intervalTicks())),
+                loadTiers(section, fallback.tiers(), logger, path)
+        );
     }
 
     private static DepletedAirConfig loadDepletedAir(ConfigurationSection section, DepletedAirConfig fallback, Logger logger, String path) {
@@ -136,7 +179,21 @@ record AirDrainConfig(
                 section.getInt("air-threshold", fallback.airThreshold()),
                 Math.max(0.0D, section.getDouble("amount", fallback.amount())),
                 loadDamageType(section.getString("type"), fallback.type(), logger, path),
-                section.getBoolean("reset-air-after-damage", fallback.resetAirAfterDamage()),
+                section.getBoolean("preserve-overflow-reset", fallback.preserveOverflowReset()),
+                section.getInt("reset-air-to", fallback.resetAirTo())
+        );
+    }
+
+    private static WaterDamageConfig loadWaterDamage(ConfigurationSection section, WaterDamageConfig fallback) {
+        if (section == null) {
+            return fallback;
+        }
+
+        return new WaterDamageConfig(
+                section.getBoolean("enabled", fallback.enabled()),
+                section.getInt("air-threshold", fallback.airThreshold()),
+                Math.max(0.0D, section.getDouble("amount", fallback.amount())),
+                section.getBoolean("preserve-overflow-reset", fallback.preserveOverflowReset()),
                 section.getInt("reset-air-to", fallback.resetAirTo())
         );
     }
@@ -158,7 +215,7 @@ record AirDrainConfig(
         List<AirDrainTier> tiers = new ArrayList<>();
         for (var tierMap : section.getMapList("tiers")) {
             Object minEntropyValue = tierMap.get("min-entropy");
-            Object airLossValue = tierMap.get("air-loss");
+            Object airLossValue = tierMap.get("amount");
             if (!(minEntropyValue instanceof Number minEntropy) || !(airLossValue instanceof Number airLoss)) {
                 logger.warning("Skipping invalid air drain tier in air-drain." + path + ": " + tierMap);
                 continue;
@@ -192,11 +249,15 @@ record AirDrainConfig(
     }
 
     private static AirDrainProfile defaultInAirProfile() {
-        return new AirDrainProfile(true, true, -20, defaultTiers(), defaultFixedDepletedAir(), new AirDamageConfig(true, 20, -20, 2.0D, EntropyDamageType.SUFFOCATION, true, 0));
+        return new AirDrainProfile(true, true, -20, defaultAirLoss(), defaultFixedDepletedAir(), new AirDamageConfig(true, 20, -20, 2.0D, EntropyDamageType.SUFFOCATION, true, 0));
     }
 
-    private static AirDrainProfile defaultInWaterProfile() {
-        return new AirDrainProfile(false, false, -20, defaultTiers(), defaultEntropyDepletedAir(), new AirDamageConfig(false, 20, -20, 2.0D, EntropyDamageType.DROWNING, true, 0));
+    private static WaterDrainProfile defaultInWaterProfile() {
+        return new WaterDrainProfile(false, -20, defaultAirLoss(), defaultEntropyDepletedAir(), new WaterDamageConfig(false, -20, 2.0D, true, 0));
+    }
+
+    private static AirLossConfig defaultAirLoss() {
+        return new AirLossConfig(DEFAULT_AIR_LOSS_INTERVAL_TICKS, defaultTiers());
     }
 
     private static DepletedAirConfig defaultFixedDepletedAir() {

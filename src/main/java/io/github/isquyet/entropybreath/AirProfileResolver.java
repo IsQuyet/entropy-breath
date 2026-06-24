@@ -13,8 +13,8 @@ import java.util.UUID;
 final class AirProfileResolver {
     private final Map<UUID, Long> breathableSurfaceUntilTick = new HashMap<>();
 
-    AirDrainProfile profileFor(Player player, AirDrainConfig config, long elapsedTicks) {
-        return config.profileFor(usesWaterProfile(player) && !usesBreathableSurfaceAirProfile(player, elapsedTicks));
+    boolean usesActiveWaterProfile(Player player, long elapsedTicks) {
+        return usesWaterProfile(player) && !usesBreathableSurfaceAirProfile(player, elapsedTicks);
     }
 
     boolean usesWaterProfile(Player player) {

@@ -8,8 +8,10 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityAirChangeEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -29,12 +31,15 @@ final class AirDrainController implements Listener {
     private final AirProfileResolver profileResolver = new AirProfileResolver();
     private final Map<UUID, Long> lastDamageAtTick = new HashMap<>();
     private final Map<UUID, Integer> lastObservedAir = new HashMap<>();
+    private final Map<UUID, Integer> waterAirDebt = new HashMap<>();
+    private final EntropyAirLossClock entropyAirLossClock = new EntropyAirLossClock();
     private final Map<UUID, Long> lastDebugAirChangeAtTick = new HashMap<>();
     private final Map<UUID, Long> lastDebugObservedAtTick = new HashMap<>();
 
     private AirDrainConfig config;
     private BukkitTask drainTask;
     private long elapsedTicks;
+    private long configGeneration;
 
     AirDrainController(JavaPlugin plugin, EntropyService entropyService, AirDrainConfig config) {
         this.plugin = plugin;
@@ -58,33 +63,47 @@ final class AirDrainController implements Listener {
         this.config = config;
         clearState();
         elapsedTicks = 0L;
+        configGeneration++;
         startDrainTask();
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityAirChange(EntityAirChangeEvent event) {
         if (config == null || !config.enabled()) {
             return;
         }
 
         Entity entity = event.getEntity();
-        if (!(entity instanceof Player player) || config.ignores(player.getGameMode())) {
+        if (!(entity instanceof Player player)) {
+            return;
+        }
+        if (config.ignores(player.getGameMode())) {
+            clearPlayerState(player.getUniqueId());
             return;
         }
 
         int currentAir = player.getRemainingAir();
         int requestedAir = event.getAmount();
-        if (requestedAir <= currentAir) {
+        if (requestedAir < currentAir) {
+            handleWaterAirDecrease(event, player, currentAir, requestedAir);
+            return;
+        }
+        if (requestedAir == currentAir) {
             return;
         }
 
         if (profileResolver.usesWaterProfile(player)
                 && !allowsAirRegeneration(player)
                 && profileResolver.isVanillaAirRecovery(player, currentAir, requestedAir)) {
-            profileResolver.markBreathableSurface(player, elapsedTicks, config.intervalTicks());
+            profileResolver.markBreathableSurface(player, elapsedTicks, 1);
         }
 
-        AirDrainProfile profile = profileResolver.profileFor(player, config, elapsedTicks);
+        if (profileResolver.usesActiveWaterProfile(player, elapsedTicks)) {
+            debugAirChange(player, currentAir, requestedAir, "active-water-profile");
+            return;
+        }
+
+        AirDrainProfile profile = config.inAir();
         if (!profile.enabled() || !profile.preventRegeneration()) {
             debugAirChange(player, currentAir, requestedAir, "profile-allows-regeneration");
             return;
@@ -104,14 +123,66 @@ final class AirDrainController implements Listener {
         event.setAmount(currentAir);
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEntityDamage(EntityDamageEvent event) {
+        if (config == null || !config.enabled() || event.getCause() != EntityDamageEvent.DamageCause.DROWNING) {
+            return;
+        }
+
+        Entity entity = event.getEntity();
+        if (!(entity instanceof Player player)) {
+            return;
+        }
+        if (config.ignores(player.getGameMode())) {
+            clearPlayerState(player.getUniqueId());
+            return;
+        }
+        if (!profileResolver.usesActiveWaterProfile(player, elapsedTicks)) {
+            return;
+        }
+
+        WaterDrainProfile profile = config.inWater();
+        WaterDamageConfig damage = profile.drowningDamage();
+        if (!profile.enabled() || !damage.enabled() || stopsDamage(player)) {
+            waterAirDebt.remove(player.getUniqueId());
+            return;
+        }
+
+        int entropy = entropyService.getEntropy(player.getLocation());
+        if (entropy <= 0) {
+            return;
+        }
+
+        event.setDamage(damage.amount());
+
+        if (!damage.preserveOverflowReset()) {
+            waterAirDebt.remove(player.getUniqueId());
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        int debt = waterAirDebt.getOrDefault(playerId, 0)
+                + AirMath.overflowBelowThreshold(damage.airThreshold(), player.getRemainingAir());
+        waterAirDebt.remove(playerId);
+
+        long scheduledGeneration = configGeneration;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (scheduledGeneration != configGeneration || !player.isOnline() || player.isDead()) {
+                return;
+            }
+            WaterDrainProfile currentProfile = config.inWater();
+            WaterDamageConfig currentDamage = currentProfile.drowningDamage();
+            if (!currentProfile.enabled() || !currentDamage.enabled() || !currentDamage.preserveOverflowReset()) {
+                return;
+            }
+            int resetAir = AirMath.clampedAir(currentProfile.minAir(), currentDamage.resetAirTo() - debt);
+            player.setRemainingAir(resetAir);
+        });
+    }
+
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        UUID playerId = event.getPlayer().getUniqueId();
-        lastDamageAtTick.remove(playerId);
-        lastObservedAir.remove(playerId);
-        lastDebugAirChangeAtTick.remove(playerId);
-        lastDebugObservedAtTick.remove(playerId);
-        profileResolver.remove(playerId);
+        clearPlayerState(event.getPlayer().getUniqueId());
     }
 
     private void startDrainTask() {
@@ -123,7 +194,7 @@ final class AirDrainController implements Listener {
             return;
         }
 
-        drainTask = Bukkit.getScheduler().runTaskTimer(plugin, this::drainOnlinePlayers, config.intervalTicks(), config.intervalTicks());
+        drainTask = Bukkit.getScheduler().runTaskTimer(plugin, this::drainOnlinePlayers, 1L, 1L);
     }
 
     private void drainOnlinePlayers() {
@@ -131,7 +202,7 @@ final class AirDrainController implements Listener {
             return;
         }
 
-        elapsedTicks += config.intervalTicks();
+        elapsedTicks += 1L;
         for (Player player : Bukkit.getOnlinePlayers()) {
             debugObservedAirIncrease(player);
             drainPlayer(player);
@@ -140,18 +211,39 @@ final class AirDrainController implements Listener {
     }
 
     private void drainPlayer(Player player) {
-        if (player.isDead() || config.ignores(player.getGameMode())) {
+        if (player.isDead()) {
+            return;
+        }
+        if (config.ignores(player.getGameMode())) {
+            clearPlayerState(player.getUniqueId());
             return;
         }
 
-        AirDrainProfile profile = profileResolver.profileFor(player, config, elapsedTicks);
+        UUID playerId = player.getUniqueId();
+        if (profileResolver.usesActiveWaterProfile(player, elapsedTicks)) {
+            WaterDamageConfig waterDamage = config.inWater().drowningDamage();
+            if (!config.inWater().enabled() || !waterDamage.enabled() || !waterDamage.preserveOverflowReset() || stopsDamage(player)) {
+                waterAirDebt.remove(playerId);
+            }
+            return;
+        }
+        waterAirDebt.remove(playerId);
+
+        AirDrainProfile profile = config.inAir();
         if (!profile.enabled()) {
             return;
         }
 
         boolean stopsAirLoss = stopsAirLoss(player);
         boolean stopsDamage = stopsDamage(player);
-        if (stopsAirLoss && stopsDamage) {
+        AirDamageConfig damage = profile.damage();
+        boolean lossDue = !stopsAirLoss && entropyAirLossClock.isDue(playerId, elapsedTicks, profile.airLoss().intervalTicks());
+        boolean damageDue = !stopsDamage
+                && damage.enabled()
+                && damage.amount() > 0.0D
+                && player.getRemainingAir() <= damage.airThreshold()
+                && isDamageDue(playerId, damage);
+        if (!lossDue && !damageDue) {
             return;
         }
 
@@ -161,14 +253,17 @@ final class AirDrainController implements Listener {
         }
 
         int theoreticalAir = player.getRemainingAir();
-        if (!stopsAirLoss) {
+        if (lossDue) {
             int currentAir = player.getRemainingAir();
             int entropyAirLoss = profile.airLossFor(entropy);
             int rawAirLoss = currentAir <= 0 ? profile.depletedAir().airLoss(entropyAirLoss) : entropyAirLoss;
-            int airLoss = adjustForRespiration(player, rawAirLoss);
-            if (airLoss > 0) {
+            if (rawAirLoss > 0) {
+                int airLoss = adjustForRespiration(player, rawAirLoss, config.respirationReducesInAirLoss());
                 theoreticalAir = currentAir - airLoss;
-                player.setRemainingAir(Math.max(profile.minAir(), theoreticalAir));
+                if (airLoss > 0) {
+                    player.setRemainingAir(AirMath.clampedAir(profile.minAir(), theoreticalAir));
+                }
+                entropyAirLossClock.markApplied(playerId, elapsedTicks, profile.airLoss().intervalTicks());
             }
         }
 
@@ -211,8 +306,8 @@ final class AirDrainController implements Listener {
         return player.hasPotionEffect(PotionEffectType.BREATH_OF_THE_NAUTILUS);
     }
 
-    private int adjustForRespiration(Player player, int airLoss) {
-        if (!config.respirationReducesAirLoss() || airLoss <= 0) {
+    private int adjustForRespiration(Player player, int airLoss, boolean enabled) {
+        if (!enabled || airLoss <= 0) {
             return airLoss;
         }
 
@@ -232,9 +327,57 @@ final class AirDrainController implements Listener {
         return adjustedLoss;
     }
 
+    private void handleWaterAirDecrease(EntityAirChangeEvent event, Player player, int currentAir, int requestedAir) {
+        if (!profileResolver.usesActiveWaterProfile(player, elapsedTicks)) {
+            return;
+        }
+
+        WaterDrainProfile profile = config.inWater();
+        UUID playerId = player.getUniqueId();
+        if (!profile.enabled() || stopsAirLoss(player)) {
+            return;
+        }
+        if (!entropyAirLossClock.isDue(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks())) {
+            return;
+        }
+
+        int entropy = entropyService.getEntropy(player.getLocation());
+        if (entropy <= 0) {
+            return;
+        }
+
+        int entropyAirLoss = profile.eventAirLossFor(entropy);
+        int rawAirLoss = currentAir <= 0 ? profile.depletedAirLoss().airLoss(entropyAirLoss) : entropyAirLoss;
+        if (rawAirLoss <= 0) {
+            entropyAirLossClock.markApplied(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks());
+            return;
+        }
+
+        int airLoss = config.respirationReducesInWaterLoss()
+                ? adjustForRespiration(player, rawAirLoss, config.respirationReducesInWaterLoss())
+                : rawAirLoss;
+        int theoreticalAir = currentAir - airLoss;
+        if (airLoss > 0) {
+            int clampedAir = AirMath.clampedAir(profile.minAir(), theoreticalAir);
+            event.setAmount(clampedAir);
+
+            WaterDamageConfig damage = profile.drowningDamage();
+            int debt = Math.max(0, clampedAir - theoreticalAir);
+            if (debt > 0 && damage.enabled() && damage.preserveOverflowReset()) {
+                waterAirDebt.merge(playerId, debt, Integer::sum);
+            }
+        }
+        entropyAirLossClock.markApplied(playerId, elapsedTicks, profile.eventAirLoss().intervalTicks());
+    }
+
+    private boolean isDamageDue(UUID playerId, AirDamageConfig damage) {
+        Long lastDamageAt = lastDamageAtTick.get(playerId);
+        return lastDamageAt == null || elapsedTicks - lastDamageAt >= damage.intervalTicks();
+    }
+
     private void damageIfAirDepleted(Player player, AirDrainProfile profile, int theoreticalAir) {
         AirDamageConfig damage = profile.damage();
-        int effectiveAir = Math.min(player.getRemainingAir(), theoreticalAir);
+        int effectiveAir = AirMath.effectiveAir(player.getRemainingAir(), theoreticalAir);
         if (!damage.enabled() || damage.amount() <= 0.0D || effectiveAir > damage.airThreshold()) {
             return;
         }
@@ -246,11 +389,7 @@ final class AirDrainController implements Listener {
 
         player.damage(damage.amount(), damageSourceFor(damage.type()));
         lastDamageAtTick.put(player.getUniqueId(), elapsedTicks);
-        if (damage.resetAirAfterDamage()) {
-            int overflow = Math.max(0, damage.airThreshold() - theoreticalAir);
-            int resetAir = damage.resetAirTo() - overflow;
-            player.setRemainingAir(Math.max(profile.minAir(), resetAir));
-        }
+        player.setRemainingAir(AirMath.resetAirAfterDamage(damage, profile.minAir(), theoreticalAir));
     }
 
     private void debugAirChange(Player player, int currentAir, int requestedAir, String reason) {
@@ -305,9 +444,21 @@ final class AirDrainController implements Listener {
         return false;
     }
 
+    private void clearPlayerState(UUID playerId) {
+        lastDamageAtTick.remove(playerId);
+        lastObservedAir.remove(playerId);
+        waterAirDebt.remove(playerId);
+        entropyAirLossClock.remove(playerId);
+        lastDebugAirChangeAtTick.remove(playerId);
+        lastDebugObservedAtTick.remove(playerId);
+        profileResolver.remove(playerId);
+    }
+
     private void clearState() {
         lastDamageAtTick.clear();
         lastObservedAir.clear();
+        waterAirDebt.clear();
+        entropyAirLossClock.clear();
         lastDebugAirChangeAtTick.clear();
         lastDebugObservedAtTick.clear();
         profileResolver.clear();

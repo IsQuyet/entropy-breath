@@ -2,8 +2,6 @@ air-drain:
   enabled: true
   # Logs air regeneration and drain decisions for testing. Keep disabled on live servers.
   debug: false
-  # Main scan interval. Lower values react faster but run more often.
-  interval-ticks: 20
 
   # Follow vanilla-style breathing protection by default.
   # Water Breathing and Conduit Power stop entropy air drain and entropy damage,
@@ -24,7 +22,10 @@ air-drain:
       stops-damage: true
       allows-regeneration: false
     respiration:
-      reduces-air-loss: true
+      # Applies to plugin-owned in-air air loss. Vanilla already applies
+      # Respiration before underwater air-decrease events reach the plugin.
+      reduces-in-air-loss: true
+      reduces-in-water-loss: false
 
   # Creative and spectator players are ignored by default.
   ignored-game-modes:
@@ -33,29 +34,36 @@ air-drain:
 
   in-air:
     enabled: true
-    prevent-regeneration: true
+
+    regeneration:
+      prevent: true
 
     # Lowest air value the plugin can set. Vanilla drowning commonly uses -20 as
     # the damage threshold.
     min-air: -20
 
-    # EntropyCore base entropy is intentionally small, so these tiers are tuned
-    # around low integer values instead of large linear scores.
-    tiers:
-      - min-entropy: 1
-        air-loss: 1
-      - min-entropy: 2
-        air-loss: 2
-      - min-entropy: 3
-        air-loss: 4
-      - min-entropy: 5
-        air-loss: 7
-      - min-entropy: 8
-        air-loss: 12
+    # Plugin-owned air loss outside active vanilla underwater breathing. The
+    # interval shares one per-player entropy air-loss clock with water, so
+    # switching between air and water cannot reset the cadence.
+    air-loss:
+      interval-ticks: 20
+      # EntropyCore base entropy is intentionally small, so these tiers are tuned
+      # around low integer values instead of large linear scores.
+      tiers:
+        - min-entropy: 1
+          amount: 1
+        - min-entropy: 2
+          amount: 2
+        - min-entropy: 3
+          amount: 4
+        - min-entropy: 5
+          amount: 7
+        - min-entropy: 8
+          amount: 12
 
     depleted-air:
       # fixed: once air is depleted, use fixed-loss for vanilla-like damage cadence.
-      # entropy: keep using the entropy tier air-loss after air is depleted.
+      # entropy: keep using the entropy tier air loss after air is depleted.
       mode: fixed
       fixed-loss: 20
 
@@ -67,39 +75,43 @@ air-drain:
       # generic, suffocation, or drowning. Suffocation matches air depletion
       # outside water better than vanilla drowning death semantics.
       type: suffocation
-      reset-air-after-damage: true
+      preserve-overflow-reset: true
       reset-air-to: 0
 
   in-water:
-    # Vanilla already drains air and applies drowning damage in water.
-    # Enable these only if entropy should make water more dangerous.
+    # Vanilla already drains air and applies drowning damage in water. Enable
+    # this only if entropy should make water more dangerous.
     enabled: false
-    prevent-regeneration: false
     min-air: -20
 
-    tiers:
-      - min-entropy: 1
-        air-loss: 1
-      - min-entropy: 2
-        air-loss: 2
-      - min-entropy: 3
-        air-loss: 4
-      - min-entropy: 5
-        air-loss: 7
-      - min-entropy: 8
-        air-loss: 12
+    # Total air loss for a vanilla underwater air-decrease event when due.
+    # The interval shares one per-player entropy air-loss clock with air, so
+    # entering and leaving water cannot reset the cadence.
+    air-loss:
+      interval-ticks: 20
+      tiers:
+        - min-entropy: 1
+          amount: 1
+        - min-entropy: 2
+          amount: 2
+        - min-entropy: 3
+          amount: 4
+        - min-entropy: 5
+          amount: 7
+        - min-entropy: 8
+          amount: 12
 
-    depleted-air:
+    depleted-air-loss:
+      # entropy: continue using the entropy tier air loss after vanilla air is depleted.
+      # fixed: use fixed-loss as the air loss when vanilla air is already <= 0.
       mode: entropy
       fixed-loss: 20
 
-    damage:
+    drowning-damage:
+      # This sets the vanilla DROWNING damage event amount; it does not run its own
+      # damage timer and does not change the damage type.
       enabled: false
-      interval-ticks: 20
       air-threshold: -20
       amount: 2.0
-      # If water entropy damage is enabled, drowning matches vanilla water
-      # depletion semantics and death messages more closely.
-      type: drowning
-      reset-air-after-damage: true
+      preserve-overflow-reset: true
       reset-air-to: 0

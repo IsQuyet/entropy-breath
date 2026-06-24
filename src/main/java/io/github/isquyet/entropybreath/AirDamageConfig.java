@@ -6,10 +6,10 @@ record AirDamageConfig(
         int airThreshold,
         double amount,
         EntropyDamageType type,
-        boolean resetAirAfterDamage,
+        boolean preserveOverflowReset,
         int resetAirTo
 ) {
     AirDamageConfig withAirThreshold(int airThreshold) {
-        return new AirDamageConfig(enabled, intervalTicks, airThreshold, amount, type, resetAirAfterDamage, resetAirTo);
+        return new AirDamageConfig(enabled, intervalTicks, airThreshold, amount, type, preserveOverflowReset, resetAirTo);
     }
 }
