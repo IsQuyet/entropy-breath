@@ -161,9 +161,11 @@ final class AirDrainController implements Listener {
         }
 
         if (!stopsAirLoss) {
-            int airLoss = adjustForRespiration(player, profile.airLossFor(entropy));
+            int currentAir = player.getRemainingAir();
+            int entropyAirLoss = profile.airLossFor(entropy);
+            int rawAirLoss = currentAir <= 0 ? profile.depletedAir().airLoss(entropyAirLoss) : entropyAirLoss;
+            int airLoss = adjustForRespiration(player, rawAirLoss);
             if (airLoss > 0) {
-                int currentAir = player.getRemainingAir();
                 int minimumAir = profile.allowNegativeAir() ? profile.minAir() : 0;
                 player.setRemainingAir(Math.max(minimumAir, currentAir - airLoss));
             }
@@ -242,6 +244,9 @@ final class AirDrainController implements Listener {
 
         player.damage(damage.amount(), damageSourceFor(damage.type()));
         lastDamageAtTick.put(player.getUniqueId(), elapsedTicks);
+        if (damage.resetAirAfterDamage()) {
+            player.setRemainingAir(damage.resetAirTo());
+        }
     }
 
     private void debugAirChange(Player player, int currentAir, int requestedAir, String reason) {

@@ -54,6 +54,12 @@ air-drain:
       - min-entropy: 8
         air-loss: 12
 
+    depleted-air:
+      # fixed: once air is depleted, use fixed-loss for vanilla-like damage cadence.
+      # entropy: keep using the entropy tier air-loss after air is depleted.
+      mode: fixed
+      fixed-loss: 20
+
     damage:
       enabled: true
       interval-ticks: 20
@@ -62,6 +68,8 @@ air-drain:
       # generic, suffocation, or drowning. Suffocation matches air depletion
       # outside water better than vanilla drowning death semantics.
       type: suffocation
+      reset-air-after-damage: true
+      reset-air-to: 0
 
   in-water:
     # Vanilla already drains air and applies drowning damage in water.
@@ -83,6 +91,10 @@ air-drain:
       - min-entropy: 8
         air-loss: 12
 
+    depleted-air:
+      mode: entropy
+      fixed-loss: 20
+
     damage:
       enabled: false
       interval-ticks: 20
@@ -91,3 +103,5 @@ air-drain:
       # If water entropy damage is enabled, drowning matches vanilla water
       # depletion semantics and death messages more closely.
       type: drowning
+      reset-air-after-damage: true
+      reset-air-to: 0

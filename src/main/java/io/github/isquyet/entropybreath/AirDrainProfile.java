@@ -8,6 +8,7 @@ record AirDrainProfile(
         boolean allowNegativeAir,
         int minAir,
         List<AirDrainTier> tiers,
+        DepletedAirConfig depletedAir,
         AirDamageConfig damage
 ) {
     int airLossFor(int entropy) {

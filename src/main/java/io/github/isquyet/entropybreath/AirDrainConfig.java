@@ -95,13 +95,38 @@ record AirDrainConfig(
             minAir = 0;
         }
         List<AirDrainTier> tiers = loadTiers(section, fallback.tiers(), logger, path);
+        DepletedAirConfig depletedAir = loadDepletedAir(section.getConfigurationSection("depleted-air"), fallback.depletedAir(), logger, path);
         AirDamageConfig damage = loadDamage(section.getConfigurationSection("damage"), fallback.damage(), logger, path);
         if (damage.enabled() && damage.airThreshold() < minAir) {
             logger.warning("air-drain." + path + ".damage.air-threshold is below the minimum reachable air ("
                     + minAir + "); using " + minAir + " instead.");
             damage = damage.withAirThreshold(minAir);
         }
-        return new AirDrainProfile(enabled, preventRegeneration, allowNegativeAir, minAir, tiers, damage);
+        return new AirDrainProfile(enabled, preventRegeneration, allowNegativeAir, minAir, tiers, depletedAir, damage);
+    }
+
+    private static DepletedAirConfig loadDepletedAir(ConfigurationSection section, DepletedAirConfig fallback, Logger logger, String path) {
+        if (section == null) {
+            return fallback;
+        }
+
+        return new DepletedAirConfig(
+                loadDepletedAirMode(section.getString("mode"), fallback.mode(), logger, path),
+                Math.max(0, section.getInt("fixed-loss", fallback.fixedLoss()))
+        );
+    }
+
+    private static DepletedAirMode loadDepletedAirMode(String rawMode, DepletedAirMode fallback, Logger logger, String path) {
+        if (rawMode == null || rawMode.isBlank()) {
+            return fallback;
+        }
+
+        try {
+            return DepletedAirMode.valueOf(rawMode.toUpperCase(Locale.ROOT).replace('-', '_'));
+        } catch (IllegalArgumentException exception) {
+            logger.warning("Unknown depleted air mode in air-drain." + path + ".depleted-air.mode: " + rawMode + "; using " + fallback.name().toLowerCase(Locale.ROOT) + ".");
+            return fallback;
+        }
     }
 
     private static AirDamageConfig loadDamage(ConfigurationSection section, AirDamageConfig fallback, Logger logger, String path) {
@@ -114,7 +139,9 @@ record AirDrainConfig(
                 Math.max(1, section.getInt("interval-ticks", fallback.intervalTicks())),
                 section.getInt("air-threshold", fallback.airThreshold()),
                 Math.max(0.0D, section.getDouble("amount", fallback.amount())),
-                loadDamageType(section.getString("type"), fallback.type(), logger, path)
+                loadDamageType(section.getString("type"), fallback.type(), logger, path),
+                section.getBoolean("reset-air-after-damage", fallback.resetAirAfterDamage()),
+                section.getInt("reset-air-to", fallback.resetAirTo())
         );
     }
 
@@ -169,11 +196,19 @@ record AirDrainConfig(
     }
 
     private static AirDrainProfile defaultInAirProfile() {
-        return new AirDrainProfile(true, true, true, -20, defaultTiers(), new AirDamageConfig(true, 20, -20, 2.0D, EntropyDamageType.SUFFOCATION));
+        return new AirDrainProfile(true, true, true, -20, defaultTiers(), defaultFixedDepletedAir(), new AirDamageConfig(true, 20, -20, 2.0D, EntropyDamageType.SUFFOCATION, true, 0));
     }
 
     private static AirDrainProfile defaultInWaterProfile() {
-        return new AirDrainProfile(false, false, true, -20, defaultTiers(), new AirDamageConfig(false, 20, -20, 2.0D, EntropyDamageType.DROWNING));
+        return new AirDrainProfile(false, false, true, -20, defaultTiers(), defaultEntropyDepletedAir(), new AirDamageConfig(false, 20, -20, 2.0D, EntropyDamageType.DROWNING, true, 0));
+    }
+
+    private static DepletedAirConfig defaultFixedDepletedAir() {
+        return new DepletedAirConfig(DepletedAirMode.FIXED, 20);
+    }
+
+    private static DepletedAirConfig defaultEntropyDepletedAir() {
+        return new DepletedAirConfig(DepletedAirMode.ENTROPY, 20);
     }
 
     private static List<AirDrainTier> defaultTiers() {
