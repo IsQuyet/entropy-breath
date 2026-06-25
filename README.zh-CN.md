@@ -55,27 +55,31 @@ plugins/entropy-breath-1.0-SNAPSHOT.jar
 
 高度压力使用玩家的绝对 Y 值。默认配置会在 Y `0` 及以下增加额外空气扣减，也会在 Y `128` 及以上再次增加额外空气扣减。接近海平面的高度不会产生高度压力。
 
-在水中，原版 Minecraft 已经会扣减空气并造成溺水伤害。EntropyBreath 默认不改变水中行为。只有当你希望 entropy 也让水下区域更危险时，才需要启用 `air-drain.in-water`；如果希望高度压力也影响水下空气扣减，则启用 `air-drain.height-air-loss.applies-to.in-water`。
+在水中，原版 Minecraft 已经会扣减空气并造成溺水伤害。EntropyBreath 默认不改变水中行为。只有当你希望 entropy 也让水下区域更危险时，才需要启用 `entropy-breath.in-water`；如果希望高度压力也影响水下空气扣减，则启用 `entropy-breath.height-air-loss.applies-to.in-water`。
 
 ## 配置
 
 第一次启动服务器后，编辑 `plugins/EntropyBreath/config.yml`。默认配置源文件位于 `src/main/resources/config.yml`。
 
+完整选项见[配置参考](docs/configuration.zh-CN.md)。
+
 关键选项：
 
 | 路径 | 默认值 | 效果 |
 | --- | --- | --- |
-| `air-drain.enabled` | `true` | 启用插件的空气扣减逻辑 |
-| `air-drain.debug` | `false` | 输出扣减和恢复判定日志 |
-| `air-drain.ignored-game-modes` | `CREATIVE`, `SPECTATOR` | 跳过这些游戏模式的玩家 |
-| `air-drain.height-air-loss.enabled` | `true` | 根据绝对 Y 高度加入额外空气扣减 |
-| `air-drain.height-air-loss.applies-to.in-air` | `true` | 玩家不在水里时启用高度空气扣减 |
-| `air-drain.height-air-loss.applies-to.in-water` | `false` | 水下空气扣减也启用高度空气扣减 |
-| `air-drain.height-air-loss.regeneration.prevent-when-active` | `true` | 高度压力生效时阻止空气自然恢复 |
-| `air-drain.in-air.regeneration.prevent` | `true` | 允许 EntropyBreath 在危险区域阻止空气恢复 |
-| `air-drain.in-air.air-loss.interval-ticks` | `20` | 设置不在水里时的空气扣减间隔 |
-| `air-drain.in-air.damage.enabled` | `true` | 空气耗尽并达到阈值后对玩家造成伤害 |
-| `air-drain.in-water.enabled` | `false` | 让水下空气扣减也受 entropy 影响 |
+| `entropy-breath.enabled` | `true` | 启用插件的空气扣减逻辑 |
+| `entropy-breath.debug` | `false` | 输出扣减和恢复判定日志 |
+| `entropy-breath.plugin-breathing-protection.water-breathing.stops-air-loss` | `true` | 让 Water Breathing 阻止 EntropyBreath 空气扣减 |
+| `entropy-breath.plugin-breathing-protection.respiration.reduces-in-air-loss` | `true` | 让 Respiration 降低玩家不在水里时的 EntropyBreath 空气扣减 |
+| `entropy-breath.ignored-game-modes` | `CREATIVE`, `SPECTATOR` | 跳过这些游戏模式的玩家 |
+| `entropy-breath.height-air-loss.enabled` | `true` | 根据绝对 Y 高度加入额外空气扣减 |
+| `entropy-breath.height-air-loss.applies-to.in-air` | `true` | 玩家不在水里时启用高度空气扣减 |
+| `entropy-breath.height-air-loss.applies-to.in-water` | `false` | 水下空气扣减也启用高度空气扣减 |
+| `entropy-breath.height-air-loss.regeneration.prevent-when-active` | `true` | 高度压力生效时阻止空气自然恢复 |
+| `entropy-breath.in-air.regeneration.prevent` | `true` | 允许 EntropyBreath 在危险区域阻止空气恢复 |
+| `entropy-breath.in-air.air-loss.interval-ticks` | `20` | 设置不在水里时的空气扣减间隔 |
+| `entropy-breath.in-air.damage.enabled` | `true` | 空气耗尽并达到阈值后对玩家造成伤害 |
+| `entropy-breath.in-water.enabled` | `false` | 让水下空气扣减也受 entropy 影响 |
 
 玩家不在水里时的默认扣减分层：
 
@@ -119,16 +123,16 @@ height-air-loss:
 
 低于 `neutral-y` 的 tier 会在玩家 Y 小于等于对应 `y` 时生效。高于 `neutral-y` 的 tier 会在玩家 Y 大于等于对应 `y` 时生效。如果多个高度 tier 同时命中，EntropyBreath 会使用最高的 `amount`。
 
-## 呼吸保护
+## 插件呼吸保护
 
-药水效果和附魔默认贴近原版行为。
+这一段控制原版呼吸相关效果如何保护玩家免受 EntropyBreath 影响，不会修改原版水下呼吸。
 
 - Water Breathing 会阻止 EntropyBreath 空气扣减和伤害，并允许空气恢复
 - Conduit Power 会阻止 EntropyBreath 空气扣减和伤害，并允许空气恢复
 - Breath of the Nautilus 会阻止 EntropyBreath 空气扣减和伤害，但不会恢复空气
 - Respiration 会降低 EntropyBreath 对不在水里玩家造成的空气扣减
 
-在 `air-drain.breathing-protection` 下修改这些规则。
+在 `entropy-breath.plugin-breathing-protection` 下修改这些规则。
 
 ## 命令与权限
 
@@ -187,7 +191,7 @@ build/libs/entropy-breath-1.0-SNAPSHOT.jar
 如果插件行为不符合预期，先检查服务器日志。
 
 - **基于 entropy 的扣氧没有生效**：安装 EntropyCore，并确认它暴露了 `EntropyService`
-- **玩家没有被扣减空气值**：确认玩家所在位置的 entropy 或高度压力已生效，并且 `air-drain.enabled` 为 `true`
-- **创造模式玩家被忽略**：从 `air-drain.ignored-game-modes` 移除 `CREATIVE`
-- **水中行为没有变化**：如果要让 entropy 影响水中行为，将 `air-drain.in-water.enabled` 设为 `true`；如果要让高度压力影响水中行为，将 `air-drain.height-air-loss.applies-to.in-water` 设为 `true`
+- **玩家没有被扣减空气值**：确认玩家所在位置的 entropy 或高度压力已生效，并且 `entropy-breath.enabled` 为 `true`
+- **创造模式玩家被忽略**：从 `entropy-breath.ignored-game-modes` 移除 `CREATIVE`
+- **水中行为没有变化**：如果要让 entropy 影响水中行为，将 `entropy-breath.in-water.enabled` 设为 `true`；如果要让高度压力影响水中行为，将 `entropy-breath.height-air-loss.applies-to.in-water` 设为 `true`
 - **重载命令被拒绝**：授予 `entropybreath.command.reload`，或以 OP 身份执行命令

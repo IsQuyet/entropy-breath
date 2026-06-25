@@ -28,15 +28,15 @@ public record AirDrainConfig(
     private static final int DEFAULT_AIR_LOSS_INTERVAL_TICKS = 20;
 
     public static AirDrainConfig load(FileConfiguration config, Logger logger) {
-        ConfigurationSection section = config.getConfigurationSection("air-drain");
+        ConfigurationSection section = config.getConfigurationSection("entropy-breath");
         if (section == null) {
-            logger.warning("Missing air-drain config section; using safe defaults.");
+            logger.warning("Missing entropy-breath config section; using safe defaults.");
             return new AirDrainConfig(true, false, defaultBreathingEffect(), defaultBreathingEffect(), defaultNautilusBreathEffect(), true, false, defaultIgnoredGameModes(), defaultHeightAirLoss(), defaultInAirProfile(), defaultInWaterProfile());
         }
 
         boolean enabled = section.getBoolean("enabled", true);
         boolean debug = section.getBoolean("debug", false);
-        ConfigurationSection protectionSection = section.getConfigurationSection("breathing-protection");
+        ConfigurationSection protectionSection = section.getConfigurationSection("plugin-breathing-protection");
         BreathingEffectConfig waterBreathing = loadBreathingEffect(protectionSection, "water-breathing", defaultBreathingEffect());
         BreathingEffectConfig conduitPower = loadBreathingEffect(protectionSection, "conduit-power", defaultBreathingEffect());
         BreathingEffectConfig nautilusBreath = loadBreathingEffect(protectionSection, "nautilus-breath", defaultNautilusBreathEffect());
@@ -68,7 +68,7 @@ public record AirDrainConfig(
             try {
                 gameModes.add(GameMode.valueOf(rawGameMode.toUpperCase(Locale.ROOT)));
             } catch (IllegalArgumentException exception) {
-                logger.warning("Ignoring unknown game mode in air-drain.ignored-game-modes: " + rawGameMode);
+                logger.warning("Ignoring unknown game mode in entropy-breath.ignored-game-modes: " + rawGameMode);
             }
         }
         return Set.copyOf(gameModes);
@@ -88,7 +88,7 @@ public record AirDrainConfig(
 
     private static AirDrainProfile loadAirProfile(ConfigurationSection section, AirDrainProfile fallback, Logger logger, String path) {
         if (section == null) {
-            logger.warning("Missing air-drain." + path + " config section; using defaults.");
+            logger.warning("Missing entropy-breath." + path + " config section; using defaults.");
             return fallback;
         }
 
@@ -99,7 +99,7 @@ public record AirDrainConfig(
         DepletedAirConfig depletedAir = loadDepletedAir(section.getConfigurationSection("depleted-air"), fallback.depletedAir(), logger, path);
         AirDamageConfig damage = loadDamage(section.getConfigurationSection("damage"), fallback.damage(), logger, path);
         if (damage.enabled() && damage.airThreshold() < minAir) {
-            logger.warning("air-drain." + path + ".damage.air-threshold is below the minimum reachable air ("
+            logger.warning("entropy-breath." + path + ".damage.air-threshold is below the minimum reachable air ("
                     + minAir + "); using " + minAir + " instead.");
             damage = damage.withAirThreshold(minAir);
         }
@@ -108,7 +108,7 @@ public record AirDrainConfig(
 
     private static WaterDrainProfile loadWaterProfile(ConfigurationSection section, WaterDrainProfile fallback, Logger logger, String path) {
         if (section == null) {
-            logger.warning("Missing air-drain." + path + " config section; using defaults.");
+            logger.warning("Missing entropy-breath." + path + " config section; using defaults.");
             return fallback;
         }
 
@@ -126,7 +126,7 @@ public record AirDrainConfig(
                 fallback.drowningDamage()
         );
         if (drowningDamage.enabled() && drowningDamage.airThreshold() < minAir) {
-            logger.warning("air-drain." + path + ".drowning-damage.air-threshold is below the minimum reachable air ("
+            logger.warning("entropy-breath." + path + ".drowning-damage.air-threshold is below the minimum reachable air ("
                     + minAir + "); using " + minAir + " instead.");
             drowningDamage = drowningDamage.withAirThreshold(minAir);
         }
@@ -136,7 +136,7 @@ public record AirDrainConfig(
     private static AirLossConfig loadAirLoss(ConfigurationSection parent, String childPath, AirLossConfig fallback, Logger logger, String path) {
         ConfigurationSection section = parent.getConfigurationSection(childPath);
         if (section == null) {
-            logger.warning("Missing air-drain." + path + " config section; using defaults.");
+            logger.warning("Missing entropy-breath." + path + " config section; using defaults.");
             return fallback;
         }
 
@@ -167,7 +167,7 @@ public record AirDrainConfig(
             Object yValue = tierMap.get("y");
             Object airLossValue = tierMap.get("amount");
             if (!(yValue instanceof Number y) || !(airLossValue instanceof Number airLoss)) {
-                logger.warning("Skipping invalid height air loss tier in air-drain.height-air-loss: " + tierMap);
+                logger.warning("Skipping invalid height air loss tier in entropy-breath.height-air-loss: " + tierMap);
                 continue;
             }
 
@@ -175,7 +175,7 @@ public record AirDrainConfig(
         }
 
         if (tiers.isEmpty()) {
-            logger.warning("No valid height air loss tiers configured in air-drain.height-air-loss; using defaults.");
+            logger.warning("No valid height air loss tiers configured in entropy-breath.height-air-loss; using defaults.");
             return fallback;
         }
         return List.copyOf(tiers);
@@ -200,7 +200,7 @@ public record AirDrainConfig(
         try {
             return DepletedAirMode.valueOf(rawMode.toUpperCase(Locale.ROOT).replace('-', '_'));
         } catch (IllegalArgumentException exception) {
-            logger.warning("Unknown depleted air mode in air-drain." + path + ".depleted-air.mode: " + rawMode + "; using " + fallback.name().toLowerCase(Locale.ROOT) + ".");
+            logger.warning("Unknown depleted air mode in entropy-breath." + path + ".depleted-air.mode: " + rawMode + "; using " + fallback.name().toLowerCase(Locale.ROOT) + ".");
             return fallback;
         }
     }
@@ -243,7 +243,7 @@ public record AirDrainConfig(
         try {
             return EntropyDamageType.valueOf(rawType.toUpperCase(Locale.ROOT).replace('-', '_'));
         } catch (IllegalArgumentException exception) {
-            logger.warning("Unknown damage type in air-drain." + path + ".damage.type: " + rawType + "; using " + fallback.name().toLowerCase(Locale.ROOT) + ".");
+            logger.warning("Unknown damage type in entropy-breath." + path + ".damage.type: " + rawType + "; using " + fallback.name().toLowerCase(Locale.ROOT) + ".");
             return fallback;
         }
     }
@@ -254,7 +254,7 @@ public record AirDrainConfig(
             Object minEntropyValue = tierMap.get("min-entropy");
             Object airLossValue = tierMap.get("amount");
             if (!(minEntropyValue instanceof Number minEntropy) || !(airLossValue instanceof Number airLoss)) {
-                logger.warning("Skipping invalid air drain tier in air-drain." + path + ": " + tierMap);
+                logger.warning("Skipping invalid air drain tier in entropy-breath." + path + ": " + tierMap);
                 continue;
             }
 
@@ -264,7 +264,7 @@ public record AirDrainConfig(
         }
 
         if (tiers.isEmpty()) {
-            logger.warning("No valid air drain tiers configured in air-drain." + path + "; using defaults.");
+            logger.warning("No valid air drain tiers configured in entropy-breath." + path + "; using defaults.");
             return fallback;
         }
 
@@ -306,7 +306,7 @@ public record AirDrainConfig(
     }
 
     private static DepletedAirConfig defaultEntropyDepletedAir() {
-        return new DepletedAirConfig(DepletedAirMode.ENTROPY, 20);
+        return new DepletedAirConfig(DepletedAirMode.ENVIRONMENT, 20);
     }
 
     private static List<AirDrainTier> defaultTiers() {

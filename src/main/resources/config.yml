@@ -1,13 +1,12 @@
-air-drain:
+entropy-breath:
   enabled: true
   # Logs air regeneration and drain decisions for testing. Keep disabled on live servers.
   debug: false
 
-  # Follow vanilla-style breathing protection by default.
-  # Water Breathing and Conduit Power stop entropy air drain and entropy damage,
-  # and they are allowed to restore air like vanilla. Respiration reduces
-  # entropy air loss instead of granting full immunity.
-  breathing-protection:
+  # Controls how vanilla breathing-related effects interact with EntropyBreath's
+  # own air mechanics. These options only affect plugin air loss, plugin damage,
+  # and plugin regeneration blocking; vanilla underwater breathing is unchanged.
+  plugin-breathing-protection:
     water-breathing:
       stops-air-loss: true
       stops-damage: true
@@ -16,15 +15,17 @@ air-drain:
       stops-air-loss: true
       stops-damage: true
       allows-regeneration: true
-    # Breath of the Nautilus pauses oxygen consumption without refilling air.
+    # Breath of the Nautilus pauses EntropyBreath pressure without refilling air.
     nautilus-breath:
       stops-air-loss: true
       stops-damage: true
       allows-regeneration: false
     respiration:
-      # Applies to plugin-owned in-air air loss. Vanilla already applies
-      # Respiration before underwater air-decrease events reach the plugin.
+      # Applies to EntropyBreath air loss while not in water.
       reduces-in-air-loss: true
+      # Vanilla already applies Respiration before underwater air-decrease events
+      # reach EntropyBreath. Enable this only if Respiration should also reduce
+      # the plugin's extra underwater air loss.
       reduces-in-water-loss: false
 
   # Creative and spectator players are ignored by default.
@@ -88,7 +89,7 @@ air-drain:
 
     depleted-air:
       # fixed: once air is depleted, use fixed-loss for vanilla-like damage cadence.
-      # entropy: keep using the entropy tier air loss after air is depleted.
+      # environment: keep using entropy air loss plus height air loss.
       mode: fixed
       fixed-loss: 20
 
@@ -127,9 +128,9 @@ air-drain:
           amount: 12
 
     depleted-air-loss:
-      # entropy: continue using the entropy tier air loss after vanilla air is depleted.
+      # environment: keep using entropy air loss plus height air loss.
       # fixed: use fixed-loss as the air loss when vanilla air is already <= 0.
-      mode: entropy
+      mode: environment
       fixed-loss: 20
 
     drowning-damage:

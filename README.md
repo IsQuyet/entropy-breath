@@ -55,27 +55,31 @@ When a player enters a location with entropy above `0`, EntropyBreath decreases 
 
 Height pressure uses the player's absolute Y level. The default config adds extra air loss at Y `0` and below, then again at Y `128` and above. Y levels near sea level add no height pressure.
 
-In water, vanilla Minecraft already drains air and applies drowning damage. EntropyBreath leaves that behavior unchanged by default. Enable `air-drain.in-water` only if entropy should make underwater areas more dangerous too. Enable `air-drain.height-air-loss.applies-to.in-water` if height pressure should also affect underwater air loss.
+In water, vanilla Minecraft already drains air and applies drowning damage. EntropyBreath leaves that behavior unchanged by default. Enable `entropy-breath.in-water` only if entropy should make underwater areas more dangerous too. Enable `entropy-breath.height-air-loss.applies-to.in-water` if height pressure should also affect underwater air loss.
 
 ## Configuration
 
 Edit `plugins/EntropyBreath/config.yml` after the first server start. The default source file lives at `src/main/resources/config.yml`.
 
+See [Configuration reference](docs/configuration.md) for the full option list.
+
 Key options:
 
 | Path | Default | Effect |
 | --- | --- | --- |
-| `air-drain.enabled` | `true` | Enables the plugin's air-drain logic |
-| `air-drain.debug` | `false` | Logs drain and regeneration decisions |
-| `air-drain.ignored-game-modes` | `CREATIVE`, `SPECTATOR` | Skips players in these game modes |
-| `air-drain.height-air-loss.enabled` | `true` | Adds air loss from absolute Y level |
-| `air-drain.height-air-loss.applies-to.in-air` | `true` | Applies height air loss when players are not in water |
-| `air-drain.height-air-loss.applies-to.in-water` | `false` | Applies height air loss to underwater air loss |
-| `air-drain.height-air-loss.regeneration.prevent-when-active` | `true` | Blocks natural air regeneration when height pressure is active |
-| `air-drain.in-air.regeneration.prevent` | `true` | Allows EntropyBreath to block air regeneration in dangerous areas |
-| `air-drain.in-air.air-loss.interval-ticks` | `20` | Sets the drain interval when players are not in water |
-| `air-drain.in-air.damage.enabled` | `true` | Damages players after depleted air reaches the threshold |
-| `air-drain.in-water.enabled` | `false` | Adds entropy scaling to underwater air loss |
+| `entropy-breath.enabled` | `true` | Enables the plugin's air loss logic |
+| `entropy-breath.debug` | `false` | Logs drain and regeneration decisions |
+| `entropy-breath.plugin-breathing-protection.water-breathing.stops-air-loss` | `true` | Lets Water Breathing stop EntropyBreath air loss |
+| `entropy-breath.plugin-breathing-protection.respiration.reduces-in-air-loss` | `true` | Lets Respiration reduce EntropyBreath air loss when players are not in water |
+| `entropy-breath.ignored-game-modes` | `CREATIVE`, `SPECTATOR` | Skips players in these game modes |
+| `entropy-breath.height-air-loss.enabled` | `true` | Adds air loss from absolute Y level |
+| `entropy-breath.height-air-loss.applies-to.in-air` | `true` | Applies height air loss when players are not in water |
+| `entropy-breath.height-air-loss.applies-to.in-water` | `false` | Applies height air loss to underwater air loss |
+| `entropy-breath.height-air-loss.regeneration.prevent-when-active` | `true` | Blocks natural air regeneration when height pressure is active |
+| `entropy-breath.in-air.regeneration.prevent` | `true` | Allows EntropyBreath to block air regeneration in dangerous areas |
+| `entropy-breath.in-air.air-loss.interval-ticks` | `20` | Sets the drain interval when players are not in water |
+| `entropy-breath.in-air.damage.enabled` | `true` | Damages players after depleted air reaches the threshold |
+| `entropy-breath.in-water.enabled` | `false` | Adds entropy scaling to underwater air loss |
 
 The default drain tiers for players not in water are:
 
@@ -119,16 +123,16 @@ height-air-loss:
 
 Tiers below `neutral-y` apply at or below their `y` value. Tiers above `neutral-y` apply at or above their `y` value. If multiple height tiers match, EntropyBreath uses the highest `amount`.
 
-## Breathing protection
+## Plugin breathing protection
 
-Potion effects and enchantments follow vanilla expectations by default.
+This section controls how vanilla breathing effects protect players from EntropyBreath. It does not change vanilla underwater breathing.
 
 - Water Breathing stops EntropyBreath air loss and damage, then allows air to regenerate
 - Conduit Power stops EntropyBreath air loss and damage, then allows air to regenerate
 - Breath of the Nautilus stops EntropyBreath air loss and damage, but does not refill air
 - Respiration reduces EntropyBreath air loss when players are not in water
 
-Change these rules under `air-drain.breathing-protection`.
+Change these rules under `entropy-breath.plugin-breathing-protection`.
 
 ## Commands and permissions
 
@@ -187,7 +191,7 @@ build/libs/entropy-breath-1.0-SNAPSHOT.jar
 Start with the server log when the plugin does not behave as expected.
 
 - **Entropy-based air loss does not work**: Install EntropyCore and confirm it exposes `EntropyService`
-- **Players do not lose air**: Check that local entropy or height pressure is active and `air-drain.enabled` is `true`
-- **Creative players are ignored**: Remove `CREATIVE` from `air-drain.ignored-game-modes`
-- **Water behavior does not change**: Set `air-drain.in-water.enabled` to `true` for entropy, or `air-drain.height-air-loss.applies-to.in-water` to `true` for height pressure
+- **Players do not lose air**: Check that local entropy or height pressure is active and `entropy-breath.enabled` is `true`
+- **Creative players are ignored**: Remove `CREATIVE` from `entropy-breath.ignored-game-modes`
+- **Water behavior does not change**: Set `entropy-breath.in-water.enabled` to `true` for entropy, or `entropy-breath.height-air-loss.applies-to.in-water` to `true` for height pressure
 - **Reload command is denied**: Grant `entropybreath.command.reload` or run the command as an operator
