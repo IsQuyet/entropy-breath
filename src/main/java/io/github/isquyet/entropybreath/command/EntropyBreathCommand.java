@@ -34,6 +34,9 @@ public final class EntropyBreathCommand implements BasicCommand {
 
     @Override
     public @NonNull Collection<@NonNull String> suggest(@NonNull CommandSourceStack source, @NonNull String @NonNull [] args) {
+        if (args.length == 0) {
+            return List.of("reload");
+        }
         if (args.length != 1) {
             return List.of();
         }
