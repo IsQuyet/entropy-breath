@@ -8,6 +8,7 @@ import io.github.isquyet.entropybreath.config.WaterDamageConfig;
 import io.github.isquyet.entropybreath.config.WaterDrainProfile;
 import io.github.isquyet.entropybreath.entropy.EntropyLookup;
 import org.bukkit.Bukkit;
+import org.bukkit.GameRule;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
 import org.bukkit.entity.Entity;
@@ -345,7 +346,7 @@ public final class AirDrainController implements Listener {
     private void damageIfAirDepleted(Player player, AirDrainProfile profile, int theoreticalAir) {
         AirDamageConfig damage = profile.damage();
         int effectiveAir = AirMath.effectiveAir(player.getRemainingAir(), theoreticalAir);
-        if (!damage.enabled() || damage.amount() <= 0.0D || effectiveAir > damage.airThreshold()) {
+        if (!damage.enabled() || damage.amount() <= 0.0D || effectiveAir > damage.airThreshold() || !allowsAirDepletionDamage(player)) {
             return;
         }
 
@@ -357,6 +358,10 @@ public final class AirDrainController implements Listener {
         player.damage(damage.amount(), damageSourceFor(damage.type()));
         lastDamageAtTick.put(player.getUniqueId(), elapsedTicks);
         player.setRemainingAir(AirMath.resetAirAfterDamage(damage, profile.minAir(), theoreticalAir));
+    }
+
+    private boolean allowsAirDepletionDamage(Player player) {
+        return !Boolean.FALSE.equals(player.getWorld().getGameRuleValue(GameRule.DROWNING_DAMAGE));
     }
 
     private void debugAirChange(Player player, int currentAir, int requestedAir, String reason) {
