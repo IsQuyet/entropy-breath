@@ -13,3 +13,6 @@ run
 
 # JVM crash logs
 hs_err_pid*
+
+# Local planning notes
+reference/
