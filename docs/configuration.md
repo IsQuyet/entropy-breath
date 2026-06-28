@@ -143,3 +143,7 @@ EntropyBreath does not replace vanilla underwater air loss. When vanilla has alr
 ### Depleted air
 
 Depleted-air modes use the final environment air loss value. This value includes entropy air loss plus height air loss.
+
+### `drowningDamage` gamerule
+
+EntropyBreath explicitly respects Minecraft's `drowningDamage` gamerule. When `drowningDamage` is `false`, the plugin still applies air loss and regeneration blocking, but it does not deal plugin air-depletion damage.

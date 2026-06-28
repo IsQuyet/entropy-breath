@@ -6,6 +6,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 final class BreathingProtection {
@@ -43,13 +45,31 @@ final class BreathingProtection {
         return player.hasPotionEffect(PotionEffectType.BREATH_OF_THE_NAUTILUS);
     }
 
+    List<BreathingProtectionStatus> activeProtections(Player player) {
+        List<BreathingProtectionStatus> protections = new ArrayList<>();
+        if (player.hasPotionEffect(PotionEffectType.WATER_BREATHING)) {
+            protections.add(new BreathingProtectionStatus(ProtectionType.WATER_BREATHING, 0));
+        }
+        if (player.hasPotionEffect(PotionEffectType.CONDUIT_POWER)) {
+            protections.add(new BreathingProtectionStatus(ProtectionType.CONDUIT_POWER, 0));
+        }
+        if (hasNautilusBreath(player)) {
+            protections.add(new BreathingProtectionStatus(ProtectionType.NAUTILUS_BREATH, 0));
+        }
+
+        int respirationLevel = respirationLevel(player);
+        if (respirationLevel > 0) {
+            protections.add(new BreathingProtectionStatus(ProtectionType.RESPIRATION, respirationLevel));
+        }
+        return List.copyOf(protections);
+    }
+
     int adjustForRespiration(Player player, int airLoss, boolean enabled) {
         if (!enabled || airLoss <= 0) {
             return airLoss;
         }
 
-        ItemStack helmet = player.getInventory().getHelmet();
-        int respirationLevel = helmet == null ? 0 : helmet.getEnchantmentLevel(Enchantment.RESPIRATION);
+        int respirationLevel = respirationLevel(player);
         if (respirationLevel <= 0) {
             return airLoss;
         }
@@ -62,5 +82,10 @@ final class BreathingProtection {
             }
         }
         return adjustedLoss;
+    }
+
+    private int respirationLevel(Player player) {
+        ItemStack helmet = player.getInventory().getHelmet();
+        return helmet == null ? 0 : helmet.getEnchantmentLevel(Enchantment.RESPIRATION);
     }
 }

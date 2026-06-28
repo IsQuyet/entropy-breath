@@ -1,0 +1,30 @@
+prefix: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> "
+
+command:
+  no-permission: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <red>你没有权限使用这个命令。</red>"
+  player-only: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <red>只有玩家可以使用这个命令。</red>"
+  help-title: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <aqua>可用命令：</aqua>"
+  help-reload: "<white>reload</white> <gray>- 重新加载配置</gray>"
+  help-status: "<white>status</white> <gray>- 查看当前插件空气变化</gray>"
+  reload-success: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <green>配置已重新加载。</green>"
+
+status:
+  header: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <aqua>呼吸状态</aqua>"
+  line-mode: "<gray>环境：</gray>{0}"
+  line-air: "<gray>空气：</gray><white>{0}</white><gray>/</gray><white>{1}</white>"
+  line-interval: "<gray>间隔：</gray><white>{0}</white><gray> tick</gray>"
+  line-air-change: "<gray>插件空气变化：</gray><white>{0}</white>"
+  line-sources: "<gray>来源：</gray><gray>entropy</gray> <white>{0}</white><gray>，高度</gray> <white>{1}</white>"
+  line-values: "<gray>数值：</gray><gray>entropy</gray>=<white>{0}</white><gray>，y</gray>=<white>{1}</white>"
+  line-gamerule: "<gray>世界规则：</gray><white>drowningDamage={0}</white>"
+  line-protection: "<gray>保护：</gray>{0}"
+  mode:
+    in-air: "<white>不在水里</white>"
+    in-water: "<white>水下</white>"
+    breathable-surface: "<white>水面可呼吸</white>"
+  protection:
+    none: "<gray>无</gray>"
+    water-breathing: "<aqua>Water Breathing</aqua>"
+    conduit-power: "<aqua>Conduit Power</aqua>"
+    nautilus-breath: "<aqua>Breath of the Nautilus</aqua>"
+    respiration: "<aqua>Respiration {0}</aqua>"

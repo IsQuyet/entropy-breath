@@ -134,15 +134,20 @@ height-air-loss:
 
 在 `entropy-breath.plugin-breathing-protection` 下修改这些规则。
 
+## 原版溺水伤害规则
+
+EntropyBreath 专门适配了 Minecraft 的 `drowningDamage` 游戏规则。当 `drowningDamage` 为 `false` 时，插件仍会扣减空气并阻止空气恢复，但不会造成插件空气耗尽伤害。
+
 ## 命令与权限
 
-EntropyBreath 只有一个管理命令。
+EntropyBreath 提供两个管理命令。
 
 | 命令 | 别名 | 权限 | 描述 |
 | --- | --- | --- | --- |
 | `/entropybreath reload` | `/ebreath reload` | `entropybreath.command.reload` | 重载 `config.yml` |
+| `/entropybreath status` | `/ebreath status` | `entropybreath.command.status` | 查看当前插件空气变化 |
 
-重载权限默认授予 `op`。
+两个命令权限默认授予 `op`。
 
 ## 插件元数据
 

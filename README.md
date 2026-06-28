@@ -134,15 +134,20 @@ This section controls how vanilla breathing effects protect players from Entropy
 
 Change these rules under `entropy-breath.plugin-breathing-protection`.
 
+## Vanilla drowning damage gamerule
+
+EntropyBreath explicitly respects Minecraft's `drowningDamage` gamerule. When `drowningDamage` is `false`, the plugin still applies air loss and regeneration blocking, but it does not deal plugin air-depletion damage.
+
 ## Commands and permissions
 
-EntropyBreath has one admin command.
+EntropyBreath provides two admin commands.
 
 | Command | Alias | Permission | Description |
 | --- | --- | --- | --- |
 | `/entropybreath reload` | `/ebreath reload` | `entropybreath.command.reload` | Reloads `config.yml` |
+| `/entropybreath status` | `/ebreath status` | `entropybreath.command.status` | Shows your current plugin air change |
 
-The reload permission defaults to `op`.
+Both command permissions default to `op`.
 
 ## Plugin metadata
 

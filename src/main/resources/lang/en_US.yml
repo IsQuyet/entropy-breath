@@ -1,0 +1,30 @@
+prefix: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> "
+
+command:
+  no-permission: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <red>You do not have permission to use this command.</red>"
+  player-only: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <red>Only players can use this command.</red>"
+  help-title: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <aqua>Available commands:</aqua>"
+  help-reload: "<white>reload</white> <gray>- reload configuration</gray>"
+  help-status: "<white>status</white> <gray>- show current plugin air change</gray>"
+  reload-success: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <green>Configuration reloaded.</green>"
+
+status:
+  header: "<gray>[</gray><aqua>EntropyBreath</aqua><gray>]</gray> <aqua>Breathing status</aqua>"
+  line-mode: "<gray>Mode:</gray> {0}"
+  line-air: "<gray>Air:</gray> <white>{0}</white><gray>/</gray><white>{1}</white>"
+  line-interval: "<gray>Interval:</gray> <white>{0}</white><gray> ticks</gray>"
+  line-air-change: "<gray>Plugin air change:</gray> <white>{0}</white>"
+  line-sources: "<gray>Sources:</gray> <gray>entropy</gray> <white>{0}</white><gray>, height</gray> <white>{1}</white>"
+  line-values: "<gray>Values:</gray> <gray>entropy</gray>=<white>{0}</white><gray>, y</gray>=<white>{1}</white>"
+  line-gamerule: "<gray>World gamerule:</gray> <white>drowningDamage={0}</white>"
+  line-protection: "<gray>Protection:</gray> {0}"
+  mode:
+    in-air: "<white>In air</white>"
+    in-water: "<white>Underwater</white>"
+    breathable-surface: "<white>Breathable surface</white>"
+  protection:
+    none: "<gray>none</gray>"
+    water-breathing: "<aqua>Water Breathing</aqua>"
+    conduit-power: "<aqua>Conduit Power</aqua>"
+    nautilus-breath: "<aqua>Breath of the Nautilus</aqua>"
+    respiration: "<aqua>Respiration {0}</aqua>"

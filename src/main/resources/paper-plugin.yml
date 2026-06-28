@@ -20,3 +20,6 @@ permissions:
   entropybreath.command.reload:
     description: Allows reloading EntropyBreath configuration.
     default: op
+  entropybreath.command.status:
+    description: Allows viewing EntropyBreath breathing status.
+    default: op

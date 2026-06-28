@@ -143,3 +143,7 @@ EntropyBreath 不替换原版水下扣氧。只有在原版已经触发水下空
 ### 耗尽空气
 
 耗尽空气模式使用最终环境扣氧值。这个值包含 entropy 扣减和高度扣减。
+
+### `drowningDamage` 游戏规则
+
+EntropyBreath 专门适配了 Minecraft 的 `drowningDamage` 游戏规则。当 `drowningDamage` 为 `false` 时，插件仍会扣减空气并阻止空气恢复，但不会造成插件空气耗尽伤害。

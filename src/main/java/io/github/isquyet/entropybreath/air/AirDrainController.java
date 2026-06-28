@@ -27,7 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public final class AirDrainController implements Listener {
+public final class AirDrainController implements Listener, BreathingStatusProvider {
     private static final long DEBUG_LOG_INTERVAL_TICKS = 20L;
 
     private final JavaPlugin plugin;
@@ -70,6 +70,52 @@ public final class AirDrainController implements Listener {
         elapsedTicks = 0L;
         configGeneration++;
         startDrainTask();
+    }
+
+    @Override
+    public BreathingStatus statusFor(Player player) {
+        BreathingMode mode = breathingMode(player);
+        boolean waterMode = mode == BreathingMode.IN_WATER;
+        int y = player.getLocation().getBlockY();
+        int entropy = entropyLookup.getEntropy(player.getLocation());
+        int heightAirLoss = waterMode
+                ? config.heightAirLoss().inWaterLossFor(y)
+                : config.heightAirLoss().inAirLossFor(y);
+        int entropyAirLoss = waterMode
+                ? (config.inWater().enabled() ? config.inWater().eventAirLossFor(entropy) : 0)
+                : (config.inAir().enabled() ? config.inAir().airLossFor(entropy) : 0);
+        if (entropy <= 0) {
+            entropyAirLoss = 0;
+        }
+
+        int environmentAirLoss = entropyAirLoss + heightAirLoss;
+        int intervalTicks = waterMode
+                ? config.inWater().eventAirLoss().intervalTicks()
+                : config.inAir().airLoss().intervalTicks();
+
+        return new BreathingStatus(
+                mode,
+                entropy,
+                y,
+                entropyAirLoss,
+                heightAirLoss,
+                environmentAirLoss,
+                intervalTicks,
+                player.getRemainingAir(),
+                player.getMaximumAir(),
+                allowsAirDepletionDamage(player),
+                breathingProtection.activeProtections(player)
+        );
+    }
+
+    private BreathingMode breathingMode(Player player) {
+        if (profileResolver.usesBreathableSurfaceAirProfile(player, elapsedTicks)) {
+            return BreathingMode.BREATHABLE_SURFACE;
+        }
+        if (profileResolver.usesActiveWaterProfile(player, elapsedTicks)) {
+            return BreathingMode.IN_WATER;
+        }
+        return BreathingMode.IN_AIR;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
